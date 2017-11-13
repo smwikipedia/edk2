@@ -2123,8 +2123,8 @@ MtrrLibSetBelow1MBMemoryAttribute (
   //
   // (Value & ~0 | 0) still equals to (Value)
   //
-  SetMem64 (ClearMasks, sizeof (ClearMasks), 0);
-  SetMem64 (OrMasks, sizeof (OrMasks), 0);
+  SetMem (ClearMasks, sizeof (ClearMasks), 0);
+  SetMem (OrMasks, sizeof (OrMasks), 0);
 
   MsrIndex = (UINT32)-1;
   while ((BaseAddress < BASE_1MB) && (Length != 0)) {
@@ -2158,7 +2158,7 @@ MtrrLibSetBelow1MBMemoryAttribute (
                                 When range overlap happens, the last one takes higher priority.
                                 When the function returns, either all the attributes are set successfully,
                                 or none of them is set.
-  @param[in]                    Count of MTRR_MEMORY_RANGE.
+  @param[in]       RangeCount   Count of MTRR_MEMORY_RANGE.
 
   @retval RETURN_SUCCESS            The attributes were set for all the memory ranges.
   @retval RETURN_INVALID_PARAMETER  Length in any range is zero.

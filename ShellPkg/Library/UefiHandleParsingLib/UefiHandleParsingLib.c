@@ -259,9 +259,7 @@ LoadedImageProtocolDumpInformation(
     } else {
       SHELL_FREE_NON_NULL(FilePath);
     }
-    RetVal = CatSPrint(NULL, FileName);
-    SHELL_FREE_NON_NULL(FileName);
-    return RetVal;
+    return FileName;
   }
 
   HandleParsingHiiInit();
@@ -684,7 +682,7 @@ PciRootBridgeIoDumpInformation(
         break;
       }
       if (Temp != NULL) {
-        Temp2 = CatSPrint(RetVal, L"%s", Temp);
+        Temp2 = CatSPrint(RetVal, L"\r\n%s", Temp);
         FreePool(Temp);
         FreePool(RetVal);
         RetVal = Temp2;
@@ -692,7 +690,7 @@ PciRootBridgeIoDumpInformation(
       }
 
       Temp2 = CatSPrint(RetVal,
-        L"\r\n%%H%02x    %016lx  %016lx  %02x%%N",
+        L"%%H%02x    %016lx  %016lx  %02x%%N",
         Configuration->SpecificFlag,
         Configuration->AddrRangeMin,
         Configuration->AddrRangeMax,
