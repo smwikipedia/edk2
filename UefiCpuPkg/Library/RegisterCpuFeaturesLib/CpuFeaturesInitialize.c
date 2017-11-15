@@ -149,27 +149,27 @@ CpuInitDataInitialize (
   CpuFeaturesData = GetCpuFeaturesData ();
   CpuFeaturesData->InitOrder = AllocateZeroPool (sizeof (CPU_FEATURES_INIT_ORDER) * NumberOfCpus);
   ASSERT (CpuFeaturesData->InitOrder != NULL);
-  CpuFeaturesData->BitMaskSize = (UINT32) PcdGetSize (PcdCpuFeaturesSupport);
+  CpuFeaturesData->BitMaskSize = (UINT32) PcdGetSize (PcdCpuFeaturesSupport); //c: redundant?
 
   //
   // Collect CPU Features information
   //
   Entry = GetFirstNode (&CpuFeaturesData->FeatureList);
-  while (!IsNull (&CpuFeaturesData->FeatureList, Entry)) {
+  while (!IsNull (&CpuFeaturesData->FeatureList, Entry)) { //c: Traverse all the features and prepare buffer for CPU features.
     CpuFeature = CPU_FEATURE_ENTRY_FROM_LINK (Entry);
     ASSERT (CpuFeature->InitializeFunc != NULL);
     if (CpuFeature->GetConfigDataFunc != NULL) {
-      CpuFeature->ConfigData = CpuFeature->GetConfigDataFunc (NumberOfCpus);
+      CpuFeature->ConfigData = CpuFeature->GetConfigDataFunc (NumberOfCpus); //c: Prepare a buffer to hold config data for each and every cpu regarding current feature.
     }
     Entry = Entry->ForwardLink;
   }
 
-  for (ProcessorNumber = 0; ProcessorNumber < NumberOfCpus; ProcessorNumber++) {
+  for (ProcessorNumber = 0; ProcessorNumber < NumberOfCpus; ProcessorNumber++) {//c: Prepare InitOrder for each processor.
     InitOrder = &CpuFeaturesData->InitOrder[ProcessorNumber];
     InitOrder->FeaturesSupportedMask = AllocateZeroPool (CpuFeaturesData->BitMaskSize);
     ASSERT (InitOrder->FeaturesSupportedMask != NULL);
     InitializeListHead (&InitOrder->OrderList);
-    Status = GetProcessorInformation (ProcessorNumber, &ProcessorInfoBuffer);
+    Status = GetProcessorInformation (ProcessorNumber, &ProcessorInfoBuffer); //c: Processor info are unique to each processor. Such as processor ID. We need to get each of them.
     ASSERT_EFI_ERROR (Status);
     CopyMem (
       &InitOrder->CpuInfo.ProcessorInfo,
@@ -317,20 +317,20 @@ CollectProcessorData (
   //
   // collect processor information
   //
-  FillProcessorInfo (CpuInfo);
-  Entry = GetFirstNode (&CpuFeaturesData->FeatureList);
-  while (!IsNull (&CpuFeaturesData->FeatureList, Entry)) {
+  FillProcessorInfo (CpuInfo);//c: We are running on a specific processor, so don't need to pass in the ProcessorNumber as argument.
+  Entry = GetFirstNode (&CpuFeaturesData->FeatureList); //c: CpuFeaturesData->FeatureList is the registered candidate features DB, which is global and same for all processors.
+  while (!IsNull (&CpuFeaturesData->FeatureList, Entry)) { // Traverse all the registered candidate cpu features to collect supported ones for current processor. And store a copy of the resulting feature mask for each processor.
     CpuFeature = CPU_FEATURE_ENTRY_FROM_LINK (Entry);
-    if (IsBitMaskMatch (CpuFeaturesData->SupportPcds, CpuFeature->FeatureMask)) {
+    if (IsBitMaskMatch (CpuFeaturesData->SupportPcds, CpuFeature->FeatureMask)) {//c: CpuFeaturesData->SupportPcds is also the same for all processors. It is collected in previous CpuInitDataInitialize() step.
       if (CpuFeature->SupportFunc == NULL) {
         //
         // If SupportFunc is NULL, then the feature is supported.
         //
         SupportedMaskOr (
-          CpuFeaturesData->InitOrder[ProcessorNumber].FeaturesSupportedMask,
+          CpuFeaturesData->InitOrder[ProcessorNumber].FeaturesSupportedMask, //c: Fill CpuInfo. And filter the registered candidate CPU features with PcdCpuFeaturesSupport.
           CpuFeature->FeatureMask
           );
-      } else if (CpuFeature->SupportFunc (ProcessorNumber, CpuInfo, CpuFeature->ConfigData)) {
+      } else if (CpuFeature->SupportFunc (ProcessorNumber, CpuInfo, CpuFeature->ConfigData)) {//c: The SupportFunc() may have different result for different ProcessorNumber, so we need to store the FeaturesSupportedMask for each ProcessorNumber.
         SupportedMaskOr (
           CpuFeaturesData->InitOrder[ProcessorNumber].FeaturesSupportedMask,
           CpuFeature->FeatureMask
@@ -750,12 +750,12 @@ CpuFeaturesDetect (
 
   GetNumberOfProcessor (&NumberOfCpus, &NumberOfEnabledProcessors);
 
-  CpuInitDataInitialize (NumberOfCpus);
+  CpuInitDataInitialize (NumberOfCpus); //c: Generally speaking, it prepares various buffers for each and every processor. So the NumberOfCpus is required.
 
   //
   // Wakeup all APs for data collection.
   //
-  StartupAPsWorker (CollectProcessorData);
+  StartupAPsWorker (CollectProcessorData); //c: Collect Cpu Info, and traverse all the registered candidate cpu features to collect supported features for each processor. 
 
   //
   // Collect data on BSP
