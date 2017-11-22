@@ -543,7 +543,7 @@ CpuRegisterTableWriteWorker (
     RegisterTable = &CpuFeaturesData->RegisterTable[ProcessorNumber];
   }
 
-  if (RegisterTable->TableLength == RegisterTable->AllocatedSize / sizeof (CPU_REGISTER_TABLE_ENTRY)) {
+  if (RegisterTable->TableLength == RegisterTable->AllocatedSize / sizeof (CPU_REGISTER_TABLE_ENTRY)) {//c: Check if current TableLength reach the buffer size limit. If so, enlarge the table.
     EnlargeRegisterTable (RegisterTable);
   }
 

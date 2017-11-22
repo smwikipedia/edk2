@@ -157,9 +157,9 @@ CpuInitDataInitialize (
   Entry = GetFirstNode (&CpuFeaturesData->FeatureList);
   while (!IsNull (&CpuFeaturesData->FeatureList, Entry)) { //c: Traverse all the features and prepare buffer for CPU features.
     CpuFeature = CPU_FEATURE_ENTRY_FROM_LINK (Entry);
-    ASSERT (CpuFeature->InitializeFunc != NULL);
+    ASSERT (CpuFeature->InitializeFunc != NULL); //c: InitializeFunc is a must.
     if (CpuFeature->GetConfigDataFunc != NULL) {
-      CpuFeature->ConfigData = CpuFeature->GetConfigDataFunc (NumberOfCpus); //c: Prepare a buffer to hold config data for each and every cpu regarding current feature.
+      CpuFeature->ConfigData = CpuFeature->GetConfigDataFunc (NumberOfCpus); //c: Just prepare a buffer to hold config data for each and every cpu regarding current feature. This step has nothing to do with processor yet.
     }
     Entry = Entry->ForwardLink;
   }
@@ -317,22 +317,22 @@ CollectProcessorData (
   //
   // collect processor information
   //
-  FillProcessorInfo (CpuInfo);//c: We are running on a specific processor, so don't need to pass in the ProcessorNumber as argument.
+  FillProcessorInfo (CpuInfo);//c: Fill the processor-specific CpuInfo. We are running on a specific processor, so don't need to pass in the ProcessorNumber as argument.
   Entry = GetFirstNode (&CpuFeaturesData->FeatureList); //c: CpuFeaturesData->FeatureList is the registered candidate features DB, which is global and same for all processors.
-  while (!IsNull (&CpuFeaturesData->FeatureList, Entry)) { // Traverse all the registered candidate cpu features to collect supported ones for current processor. And store a copy of the resulting feature mask for each processor.
+  while (!IsNull (&CpuFeaturesData->FeatureList, Entry)) { //c: Traverse all the registered candidate cpu features to collect supported ones for current processor. And store a copy of the resulting feature mask for each processor.
     CpuFeature = CPU_FEATURE_ENTRY_FROM_LINK (Entry);
-    if (IsBitMaskMatch (CpuFeaturesData->SupportPcds, CpuFeature->FeatureMask)) {//c: CpuFeaturesData->SupportPcds is also the same for all processors. It is collected in previous CpuInitDataInitialize() step.
+    if (IsBitMaskMatch (CpuFeaturesData->SupportPcds, CpuFeature->FeatureMask)) {//c: Though the CpuCommonFeaturesLib has filtered the CpuFeatures when registeration, here we filter it AGAIN in ordre to avoid dependency on CpuCommonFeaturesLib. CpuFeaturesData->SupportPcds is collected in previous CpuInitDataInitialize() step. It is same across all processors.
       if (CpuFeature->SupportFunc == NULL) {
         //
         // If SupportFunc is NULL, then the feature is supported.
         //
         SupportedMaskOr (
-          CpuFeaturesData->InitOrder[ProcessorNumber].FeaturesSupportedMask, //c: Fill CpuInfo. And filter the registered candidate CPU features with PcdCpuFeaturesSupport.
+          CpuFeaturesData->InitOrder[ProcessorNumber].FeaturesSupportedMask, //c: Only store the support feature bit mask. The actual feature is not recorded into InitOrder->OrderList yet.
           CpuFeature->FeatureMask
           );
-      } else if (CpuFeature->SupportFunc (ProcessorNumber, CpuInfo, CpuFeature->ConfigData)) {//c: The SupportFunc() may have different result for different ProcessorNumber, so we need to store the FeaturesSupportedMask for each ProcessorNumber.
+      } else if (CpuFeature->SupportFunc (ProcessorNumber, CpuInfo, CpuFeature->ConfigData)) {//c: The SupportFunc() result is processor-specific, so we need to store the FeaturesSupportedMask for each ProcessorNumber.
         SupportedMaskOr (
-          CpuFeaturesData->InitOrder[ProcessorNumber].FeaturesSupportedMask,
+          CpuFeaturesData->InitOrder[ProcessorNumber].FeaturesSupportedMask, //c: So CpuFeaturesData->InitOrder[ProcessorNumber].FeaturesSupportedMask is processor-specific.
           CpuFeature->FeatureMask
           );
       }
@@ -365,7 +365,7 @@ DumpRegisterTableOnProcessor (
   //
   // Debug information
   //
-  RegisterTable = &CpuFeaturesData->RegisterTable[ProcessorNumber];
+  RegisterTable = &CpuFeaturesData->RegisterTable[ProcessorNumber];//c: CpuFeaturesData->RegisterTable is initialized in the CpuFeature->InitializeFunc.
   DEBUG ((DebugPrintErrorLevel, "RegisterTable->TableLength = %d\n", RegisterTable->TableLength));
 
   RegisterTableEntryHead = (CPU_REGISTER_TABLE_ENTRY *) (UINTN) RegisterTable->RegisterTableEntry;
@@ -452,7 +452,7 @@ AnalysisProcessorFeatures (
     //
     // Calculate the last capability on all processors
     //
-    SupportedMaskAnd (CpuFeaturesData->CapabilityPcds, CpuInitOrder->FeaturesSupportedMask);
+    SupportedMaskAnd (CpuFeaturesData->CapabilityPcds, CpuInitOrder->FeaturesSupportedMask);//c: CpuFeaturesData->CapabilityPcds is the COMMONLY supported features across all processors.
   }
   //
   // Calculate the last setting
@@ -460,13 +460,13 @@ AnalysisProcessorFeatures (
 
   CpuFeaturesData->SettingPcds = AllocateCopyPool (CpuFeaturesData->BitMaskSize, CpuFeaturesData->CapabilityPcds);
   ASSERT (CpuFeaturesData->SettingPcds != NULL);
-  SupportedMaskAnd (CpuFeaturesData->SettingPcds, CpuFeaturesData->ConfigurationPcds);
+  SupportedMaskAnd (CpuFeaturesData->SettingPcds, CpuFeaturesData->ConfigurationPcds); //c: CpuFeaturesData->ConfigurationPcds is collected in previous CpuInitDataInitialize() step.
 
   //
   // Save PCDs and display CPU PCDs
   //
   SetCapabilityPcd (CpuFeaturesData->CapabilityPcds);
-  SetSettingPcd (CpuFeaturesData->SettingPcds);
+  SetSettingPcd (CpuFeaturesData->SettingPcds); //c: A separate CpuFeaturesData->SettingPcds is used so we can save the final enabled feature state alone.
 
   //
   // Dump the last CPU feature list
@@ -506,10 +506,10 @@ AnalysisProcessorFeatures (
       // Insert each feature into processor's order list
       //
       CpuFeature = CPU_FEATURE_ENTRY_FROM_LINK (Entry);
-      if (IsBitMaskMatch (CpuFeature->FeatureMask, CpuFeaturesData->CapabilityPcds)) {
-        CpuFeatureInOrder = AllocateCopyPool (sizeof (CPU_FEATURES_ENTRY), CpuFeature);
+      if (IsBitMaskMatch (CpuFeature->FeatureMask, CpuFeaturesData->CapabilityPcds)) {//c: CpuFeaturesData->CapabilityPcds is the COMMONLY supported features across all processors.
+        CpuFeatureInOrder = AllocateCopyPool (sizeof (CPU_FEATURES_ENTRY), CpuFeature); //c: We must create a clone of the CpuFeature instance.
         ASSERT (CpuFeatureInOrder != NULL);
-        InsertTailList (&CpuInitOrder->OrderList, &CpuFeatureInOrder->Link);
+        InsertTailList (&CpuInitOrder->OrderList, &CpuFeatureInOrder->Link);//c: Record the actually CPU feature in each processor's OrderList.
       }
       Entry = Entry->ForwardLink;
     }
@@ -521,7 +521,7 @@ AnalysisProcessorFeatures (
     while (!IsNull (&CpuInitOrder->OrderList, Entry)) {
       CpuFeatureInOrder = CPU_FEATURE_ENTRY_FROM_LINK (Entry);
       if (IsBitMaskMatch (CpuFeatureInOrder->FeatureMask, CpuFeaturesData->SettingPcds)) {
-        Status = CpuFeatureInOrder->InitializeFunc (ProcessorNumber, CpuInfo, CpuFeatureInOrder->ConfigData, TRUE);
+        Status = CpuFeatureInOrder->InitializeFunc (ProcessorNumber, CpuInfo, CpuFeatureInOrder->ConfigData, TRUE); //c: Each feature's InitializeFunc is responsible to store its related feature register values into *memory*. It doesn't manipulate the processor.
         if (EFI_ERROR (Status)) {
           //
           // Clean the CpuFeatureInOrder->FeatureMask in setting PCD.
@@ -558,7 +558,7 @@ AnalysisProcessorFeatures (
     //
     // Dump the RegisterTable
     //
-    DumpRegisterTableOnProcessor (ProcessorNumber);
+    DumpRegisterTableOnProcessor (ProcessorNumber);//c: CpuFeaturesData->RegisterTable has been initialized in the CpuFeatureInOrder->InitializeFunc call. So it can be dumped and viewed.
   }
 }
 
@@ -582,21 +582,21 @@ ProgramProcessorRegister (
   CPU_REGISTER_TABLE_ENTRY  *RegisterTableEntryHead;
 
   CpuFeaturesData = GetCpuFeaturesData ();
-  RegisterTable = &CpuFeaturesData->RegisterTable[ProcessorNumber];
+  RegisterTable = &CpuFeaturesData->RegisterTable[ProcessorNumber]; //c: CpuFeaturesData->RegisterTable has been initialized in the CpuFeature->InitializeFunc.
 
   //
   // Traverse Register Table of this logical processor
   //
   RegisterTableEntryHead = (CPU_REGISTER_TABLE_ENTRY *) (UINTN) RegisterTable->RegisterTableEntry;
 
-  for (Index = 0; Index < RegisterTable->TableLength; Index++) {
+  for (Index = 0; Index < RegisterTable->TableLength; Index++) { //c: The TableLength matches the features applicable to current processor.
 
-    RegisterTableEntry = &RegisterTableEntryHead[Index];
+    RegisterTableEntry = &RegisterTableEntryHead[Index];//c: One feature, one RegisterTableEntry.
 
     //
     // Check the type of specified register
     //
-    switch (RegisterTableEntry->RegisterType) {
+    switch (RegisterTableEntry->RegisterType) {//c: Different features may be enabled by different types of registers.
     //
     // The specified register is Control Register
     //
@@ -658,7 +658,7 @@ ProgramProcessorRegister (
       //
       // Get lock to avoid Package/Core scope MSRs programming issue in parallel execution mode
       //
-      AcquireSpinLock (&CpuFeaturesData->MsrLock);
+      AcquireSpinLock (&CpuFeaturesData->MsrLock); //c: This is a blocking call until the lock is acquired. Spin lock is essentially busy wait.
       if (RegisterTableEntry->ValidBitLength >= 64) {
         //
         // If length is not less than 64 bits, then directly write without reading
@@ -727,7 +727,7 @@ SetProcessorRegister (
 {
   UINTN                  ProcessorNumber;
 
-  ProcessorNumber = GetProcessorIndex ();
+  ProcessorNumber = GetProcessorIndex ();//c: This func runs on each processor. Need to get current ProcessorNumber to index the register table for current processor.
   ProgramProcessorRegister (ProcessorNumber);
 }
 
@@ -797,7 +797,7 @@ CpuFeaturesInitialize (
   //
   // Switch to new BSP if required
   //
-  if (CpuFeaturesData->BspNumber != OldBspNumber) {
+  if (CpuFeaturesData->BspNumber != OldBspNumber) { //c: it seems the CpuFeaturesData->BspNumber may be changed during SetProcessorRegister.
     SwitchNewBsp (CpuFeaturesData->BspNumber);
   }
 }

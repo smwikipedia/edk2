@@ -30,7 +30,7 @@ typedef enum {
 //
 typedef struct {
   REGISTER_TYPE  RegisterType;          // offset 0 - 3
-  UINT32         Index;                 // offset 4 - 7
+  UINT32         Index;                 // offset 4 - 7 //c: This is the register address
   UINT8          ValidBitStart;         // offset 8
   UINT8          ValidBitLength;        // offset 9
   UINT16         Reserved;              // offset 10 - 11
