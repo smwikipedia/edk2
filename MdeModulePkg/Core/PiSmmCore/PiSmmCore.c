@@ -82,7 +82,7 @@ SMM_CORE_SMI_HANDLERS  mSmmCoreSmiHandlers[] = {
   { SmmReadyToBootHandler,      &gEfiEventReadyToBootGuid,           NULL, FALSE },
   { SmmEndOfDxeHandler,         &gEfiEndOfDxeEventGroupGuid,         NULL, TRUE },
   { SmmEndOfS3ResumeHandler,    &gEdkiiSmmEndOfS3ResumeProtocolGuid, NULL, FALSE },
-  { NULL,                       NULL,                                NULL, FALSE }
+  { NULL,                       NULL,                                NULL, FALSE } //c: ending flag.
 };
 
 UINTN                           mFullSmramRangeCount;
@@ -697,8 +697,8 @@ SmmMain (
   //
   // Fill in SMRAM physical address for the SMM Services Table and the SMM Entry Point.
   //
-  gSmmCorePrivate->Smst          = &gSmmCoreSmst;
-  gSmmCorePrivate->SmmEntryPoint = SmmEntryPoint;
+  gSmmCorePrivate->Smst          = &gSmmCoreSmst; //c: Fill the SMST
+  gSmmCorePrivate->SmmEntryPoint = SmmEntryPoint; //c: Fill the SmmEntryPoint
   
   //
   // No need to initialize memory service.
@@ -711,10 +711,10 @@ SmmMain (
   //
   // Copy FullSmramRanges to SMRAM
   //
-  mFullSmramRangeCount = gSmmCorePrivate->SmramRangeCount;
-  mFullSmramRanges = AllocatePool (mFullSmramRangeCount * sizeof (EFI_SMRAM_DESCRIPTOR));
+  mFullSmramRangeCount = gSmmCorePrivate->SmramRangeCount; //c: The total range count of the Smram range
+  mFullSmramRanges = AllocatePool (mFullSmramRangeCount * sizeof (EFI_SMRAM_DESCRIPTOR)); //c: A new memory map is allcoated in SMRAM. It is for SMM Memory Manager. It is a clone of gSmmCorePrivate->SmramRanges (see below).
   ASSERT (mFullSmramRanges != NULL);
-  CopyMem (mFullSmramRanges, gSmmCorePrivate->SmramRanges, mFullSmramRangeCount * sizeof (EFI_SMRAM_DESCRIPTOR));
+  CopyMem (mFullSmramRanges, gSmmCorePrivate->SmramRanges, mFullSmramRangeCount * sizeof (EFI_SMRAM_DESCRIPTOR)); //c: Now, there's a memory map exists in SMRAM.
 
   //
   // Register all SMI Handlers required by the SMM Core
@@ -722,7 +722,7 @@ SmmMain (
   for (Index = 0; mSmmCoreSmiHandlers[Index].HandlerType != NULL; Index++) {
     Status = SmiHandlerRegister (
                mSmmCoreSmiHandlers[Index].Handler,
-               mSmmCoreSmiHandlers[Index].HandlerType,
+               mSmmCoreSmiHandlers[Index].HandlerType,//c: These handlers all have a HandlerType, so they are no root SMI handlers.
                &mSmmCoreSmiHandlers[Index].DispatchHandle
                );
     ASSERT_EFI_ERROR (Status);

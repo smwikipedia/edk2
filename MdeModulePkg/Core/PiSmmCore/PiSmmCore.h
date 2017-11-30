@@ -81,7 +81,7 @@ typedef struct {
   UINTN       Signature;
   LIST_ENTRY  AllEntries;  // All entries
 
-  EFI_GUID    HandlerType; // Type of interrupt
+  EFI_GUID    HandlerType; // Type of interrupt //c: Type of teh SMI interrupt
   LIST_ENTRY  SmiHandlers; // All handlers
 } SMI_ENTRY;
 

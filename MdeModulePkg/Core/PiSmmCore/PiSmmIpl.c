@@ -1617,7 +1617,7 @@ SmmIplEntry (
       //
       // The SMRAM available memory is assumed to be larger than SmmCodeSize
       //
-      ASSERT (mCurrentSmramRange->PhysicalSize > SmmCodeSize);
+      ASSERT (mCurrentSmramRange->PhysicalSize > SmmCodeSize); //c: The SmmCodeSize include both SMM Driver and SMM Core. This way the mCurrentSmramRange can accommodate ranges for both SMM Drivers and SMM Core.
       //
       // Retrieve Load modules At fixed address configuration table and save the SMRAM base.
       //
@@ -1649,10 +1649,10 @@ SmmIplEntry (
     //
     // Load SMM Core into SMRAM and execute it from SMRAM
     //
-    Status = ExecuteSmmCoreFromSmram (
-               mCurrentSmramRange,
-               &gSmmCorePrivate->SmramRanges[gSmmCorePrivate->SmramRangeCount - 1], //c: The last entry of the SmramRanges is used for the SMM Core.
-               gSmmCorePrivate
+    Status = ExecuteSmmCoreFromSmram ( //c: Here goes to the PiSmmCore.inf DXE invocation entry point, i.e. SmmMain() in PiSmmCore.c
+               mCurrentSmramRange, //c: The range to hold the SMM Core will also be supplied from the mCurrentSmramRange.
+               &gSmmCorePrivate->SmramRanges[gSmmCorePrivate->SmramRangeCount - 1], //c: The last entry of the SmramRanges is used for the SMM Core. It is also allocated from the mCurrentSmramRange.
+               gSmmCorePrivate //c: the context
                );
     if (EFI_ERROR (Status)) {
       //
@@ -1721,7 +1721,7 @@ SmmIplEntry (
   //
   for (Index = 0; mSmmIplEvents[Index].NotifyFunction != NULL; Index++) {
     if (mSmmIplEvents[Index].Protocol) {
-      mSmmIplEvents[Index].Event = EfiCreateProtocolNotifyEvent (
+      mSmmIplEvents[Index].Event = EfiCreateProtocolNotifyEvent (//c: Because we rely on the gEfiSmmConfigurationProtocolGuid protocol notification, so SmmIpl doesn't need to specify gEfiSmmConfigurationProtocolGuid in its Depex.
                                      mSmmIplEvents[Index].Guid,
                                      mSmmIplEvents[Index].NotifyTpl,
                                      mSmmIplEvents[Index].NotifyFunction,

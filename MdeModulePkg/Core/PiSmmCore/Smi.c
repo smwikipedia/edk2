@@ -244,17 +244,17 @@ SmiHandlerRegister (
     //
     // None root SMI handler
     //
-    SmiEntry = SmmCoreFindSmiEntry ((EFI_GUID *) HandlerType, TRUE);
+    SmiEntry = SmmCoreFindSmiEntry ((EFI_GUID *) HandlerType, TRUE); //c: Finds the SMI entry for the requested handler type. And create a new SMI entry if not found.
     if (SmiEntry == NULL) {
       return EFI_OUT_OF_RESOURCES;
     }
   }
   List = &SmiEntry->SmiHandlers;
 
-  SmiHandler->SmiEntry = SmiEntry;
-  InsertTailList (List, &SmiHandler->Link);
+  SmiHandler->SmiEntry = SmiEntry;//c: Associate the SmiHandler and SmiEntry together.
+  InsertTailList (List, &SmiHandler->Link);//c: Associate the SmiHandler and SmiEntry together.
 
-  *DispatchHandle = (EFI_HANDLE) SmiHandler;
+  *DispatchHandle = (EFI_HANDLE) SmiHandler; //c: DispatchHandle is the address of the SmiHandler structure.
 
   return EFI_SUCCESS;
 }
