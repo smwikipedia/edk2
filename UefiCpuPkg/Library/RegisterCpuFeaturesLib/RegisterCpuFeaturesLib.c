@@ -292,7 +292,7 @@ RegisterCpuFeatureWorker (
     InsertTailList (&CpuFeaturesData->FeatureList, &CpuFeature->Link);
     CpuFeaturesData->FeaturesCount++;
   } else {
-    DEBUG ((DEBUG_INFO, "[OVERRIDE] "));
+    DEBUG ((DEBUG_INFO, "[OVERRIDE] ")); //c: Only the non-NULL value will override.
     DumpCpuFeature (CpuFeature);
     ASSERT (CpuFeatureEntry != NULL);
     //

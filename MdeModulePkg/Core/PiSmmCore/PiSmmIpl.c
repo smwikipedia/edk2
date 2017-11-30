@@ -360,11 +360,11 @@ GetSmramCacheRange (
     for (Index = 0; Index < gSmmCorePrivate->SmramRangeCount; Index++) {
       RangeCpuStart     = gSmmCorePrivate->SmramRanges[Index].CpuStart;
       RangePhysicalSize = gSmmCorePrivate->SmramRanges[Index].PhysicalSize;
-      if (RangeCpuStart < *SmramCacheBase && *SmramCacheBase == (RangeCpuStart + RangePhysicalSize)) {
+      if (RangeCpuStart < *SmramCacheBase && *SmramCacheBase == (RangeCpuStart + RangePhysicalSize)) {//c: Range is on the immediate left side of SmramRange. i.e. [-----Range----][----SmramRange----], left adjacent
         *SmramCacheBase   = RangeCpuStart;
         *SmramCacheSize  += RangePhysicalSize;
         FoundAjacentRange = TRUE;
-      } else if ((*SmramCacheBase + *SmramCacheSize) == RangeCpuStart && RangePhysicalSize > 0) {
+      } else if ((*SmramCacheBase + *SmramCacheSize) == RangeCpuStart && RangePhysicalSize > 0) {//c: Range is on the immediate right side of SmramRange. i.e. [----SmramRange----][-----Range----], right adjacent
         *SmramCacheSize  += RangePhysicalSize;
         FoundAjacentRange = TRUE;
       }
@@ -1321,8 +1321,8 @@ GetFullSmramRanges (
   // Get SMRAM information.
   //
   Size = 0;
-  Status = mSmmAccess->GetCapabilities (mSmmAccess, &Size, NULL);
-  ASSERT (Status == EFI_BUFFER_TOO_SMALL);
+  Status = mSmmAccess->GetCapabilities (mSmmAccess, &Size, NULL); //c: Size is the SMRAM memory *map* size. It's the size of a buffer to hold the "map".
+  ASSERT (Status == EFI_BUFFER_TOO_SMALL); //c: So the Size will contain the actually needed size now.
 
   SmramRangeCount = Size / sizeof (EFI_SMRAM_DESCRIPTOR);
 
@@ -1331,7 +1331,7 @@ GetFullSmramRanges (
   //
   SmramReservedCount = 0;
   if (SmmConfiguration != NULL) {
-    while (SmmConfiguration->SmramReservedRegions[SmramReservedCount].SmramReservedSize != 0) {
+    while (SmmConfiguration->SmramReservedRegions[SmramReservedCount].SmramReservedSize != 0) {//c: "SmramReservedSize==0" should be the ending flag of the "SmramReservedRegions" array.
       SmramReservedCount++;
     }
   }
@@ -1529,7 +1529,7 @@ SmmIplEntry (
   // ParentImageHandle field of the Load Image Protocol for all SMM Drivers loaded 
   // by the SMM Core
   //
-  mSmmCorePrivateData.SmmIplImageHandle = ImageHandle;
+  mSmmCorePrivateData.SmmIplImageHandle = ImageHandle; //c: gSmmCorePrivate = &mSmmCorePrivateData, same thing
 
   //
   // Get SMM Access Protocol
@@ -1543,12 +1543,12 @@ SmmIplEntry (
   Status = gBS->LocateProtocol (&gEfiSmmControl2ProtocolGuid, NULL, (VOID **)&mSmmControl2);
   ASSERT_EFI_ERROR (Status);
 
-  gSmmCorePrivate->SmramRanges = GetFullSmramRanges (&gSmmCorePrivate->SmramRangeCount);
+  gSmmCorePrivate->SmramRanges = GetFullSmramRanges (&gSmmCorePrivate->SmramRangeCount);//c: The SMRAM memory map and memory range count are obtained. gSmmCorePrivate = &mSmmCorePrivateData, same thing;
 
   //
   // Open all SMRAM ranges
   //
-  Status = mSmmAccess->Open (mSmmAccess);
+  Status = mSmmAccess->Open (mSmmAccess); //c: open means visiable to outside SMM
   ASSERT_EFI_ERROR (Status);
 
   //
@@ -1587,7 +1587,7 @@ SmmIplEntry (
       (VOID *)(UINTN)(mCurrentSmramRange->CpuStart + mCurrentSmramRange->PhysicalSize - 1)
       ));
 
-    GetSmramCacheRange (mCurrentSmramRange, &mSmramCacheBase, &mSmramCacheSize);
+    GetSmramCacheRange (mCurrentSmramRange, &mSmramCacheBase, &mSmramCacheSize);//c: Search and join adjacent ranges to form a range to cache.
     //
     // If CPU AP is present, attempt to set SMRAM cacheability to WB
     // Note that it is expected that cacheability of SMRAM has been set to WB if CPU AP
@@ -1596,7 +1596,7 @@ SmmIplEntry (
     CpuArch = NULL;
     Status = gBS->LocateProtocol (&gEfiCpuArchProtocolGuid, NULL, (VOID **)&CpuArch);
     if (!EFI_ERROR (Status)) {
-      Status = gDS->SetMemorySpaceAttributes(
+      Status = gDS->SetMemorySpaceAttributes( //c: Set the cache attribute for the range to cache.
                       mSmramCacheBase, 
                       mSmramCacheSize,
                       EFI_MEMORY_WB
@@ -1607,7 +1607,7 @@ SmmIplEntry (
     }
     //
     // if Loading module at Fixed Address feature is enabled, save the SMRAM base to Load
-    // Modules At Fixed Address Configuration Table.
+    // Modules At Fixed Address Configuration Table. //c: This is one of the configuration tables in the System Table.
     //
     if (PcdGet64(PcdLoadModuleAtFixAddressEnable) != 0) {
       //
@@ -1622,7 +1622,7 @@ SmmIplEntry (
       // Retrieve Load modules At fixed address configuration table and save the SMRAM base.
       //
       Status = EfiGetSystemConfigurationTable (
-                &gLoadFixedAddressConfigurationTableGuid,
+                &gLoadFixedAddressConfigurationTableGuid, //c: This is one of the configuration tables in the System Table.
                (VOID **) &mLMFAConfigurationTable
                );
       if (!EFI_ERROR (Status) && mLMFAConfigurationTable != NULL) {
@@ -1636,22 +1636,22 @@ SmmIplEntry (
       //
       // Fill the Smram range for all SMM code
       //
-      SmramRangeSmmDriver = &gSmmCorePrivate->SmramRanges[gSmmCorePrivate->SmramRangeCount - 2];
-      SmramRangeSmmDriver->CpuStart      = mCurrentSmramRange->CpuStart;
+      SmramRangeSmmDriver = &gSmmCorePrivate->SmramRanges[gSmmCorePrivate->SmramRangeCount - 2]; //c: The 2nd last entry of the SmramRanges is used for SMM Drivers, thus the name SmramRangeSmmDriver.
+      SmramRangeSmmDriver->CpuStart      = mCurrentSmramRange->CpuStart;//c: The previously found largest mCurrentSmramRange is used as the SmramRangeSmmDriver.
       SmramRangeSmmDriver->PhysicalStart = mCurrentSmramRange->PhysicalStart;
       SmramRangeSmmDriver->RegionState   = mCurrentSmramRange->RegionState | EFI_ALLOCATED;
-      SmramRangeSmmDriver->PhysicalSize  = SmmCodeSize;
+      SmramRangeSmmDriver->PhysicalSize  = SmmCodeSize;//c: It means the SmramRangeSmmDriver has been consumed by SmmCodeSize.
 
-      mCurrentSmramRange->PhysicalSize  -= SmmCodeSize;
-      mCurrentSmramRange->CpuStart       = mCurrentSmramRange->CpuStart + SmmCodeSize;
-      mCurrentSmramRange->PhysicalStart  = mCurrentSmramRange->PhysicalStart + SmmCodeSize;
-    }
+      mCurrentSmramRange->PhysicalSize  -= SmmCodeSize; //c: Adjust the mCurrentSmramRange size to reflect that SmmCodeSize of it has been consumed for SmramRangeSmmDriver range.
+      mCurrentSmramRange->CpuStart       = mCurrentSmramRange->CpuStart + SmmCodeSize; //c: Adjust the mCurrentSmramRange cpu start address to reflect that SmmCodeSize of it has been consumed for SmramRangeSmmDriver range.
+      mCurrentSmramRange->PhysicalStart  = mCurrentSmramRange->PhysicalStart + SmmCodeSize;//c: Adjust the mCurrentSmramRange physical start address to reflect that SmmCodeSize of it has been consumed for SmramRangeSmmDriver range.
+    }//c: These are all memory map handling logic. A memory map entry for a new range(SmramRangeSmmDriver) is initialized. An old mem map range entry (mCurrentSmramRange) is adjusted.
     //
     // Load SMM Core into SMRAM and execute it from SMRAM
     //
     Status = ExecuteSmmCoreFromSmram (
                mCurrentSmramRange,
-               &gSmmCorePrivate->SmramRanges[gSmmCorePrivate->SmramRangeCount - 1],
+               &gSmmCorePrivate->SmramRanges[gSmmCorePrivate->SmramRangeCount - 1], //c: The last entry of the SmramRanges is used for the SMM Core.
                gSmmCorePrivate
                );
     if (EFI_ERROR (Status)) {

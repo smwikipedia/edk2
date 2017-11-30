@@ -521,7 +521,7 @@ AnalysisProcessorFeatures (
     while (!IsNull (&CpuInitOrder->OrderList, Entry)) {
       CpuFeatureInOrder = CPU_FEATURE_ENTRY_FROM_LINK (Entry);
       if (IsBitMaskMatch (CpuFeatureInOrder->FeatureMask, CpuFeaturesData->SettingPcds)) {
-        Status = CpuFeatureInOrder->InitializeFunc (ProcessorNumber, CpuInfo, CpuFeatureInOrder->ConfigData, TRUE); //c: Each feature's InitializeFunc is responsible to store its related feature register values into *memory*. It doesn't manipulate the processor.
+        Status = CpuFeatureInOrder->InitializeFunc (ProcessorNumber, CpuInfo, CpuFeatureInOrder->ConfigData, TRUE); //c: Each feature's InitializeFunc is responsible to store its related feature register values into *memory*. It doesn't manipulate the physical processor register yet.
         if (EFI_ERROR (Status)) {
           //
           // Clean the CpuFeatureInOrder->FeatureMask in setting PCD.
