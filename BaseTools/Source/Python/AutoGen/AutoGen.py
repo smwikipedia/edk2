@@ -3267,13 +3267,13 @@ class ModuleAutoGen(AutoGen):
                     EdkLogger.debug(EdkLogger.DEBUG_9, "The toolchain [%s] for processing file [%s] is found, "
                                     "but [%s] is needed" % (F.TagName, str(F), self.ToolChain))
                     continue
-                # match tool chain family
-                if F.ToolChainFamily not in ("", "*", self.ToolChainFamily):
+                # match tool chain family or build rule family
+                if F.ToolChainFamily not in ("", "*", self.ToolChainFamily, self.BuildRuleFamily):
                     EdkLogger.debug(
                                 EdkLogger.DEBUG_0,
                                 "The file [%s] must be built by tools of [%s], " \
-                                "but current toolchain family is [%s]" \
-                                    % (str(F), F.ToolChainFamily, self.ToolChainFamily))
+                                "but current toolchain family is [%s], buildrule family is [%s]" \
+                                    % (str(F), F.ToolChainFamily, self.ToolChainFamily, self.BuildRuleFamily))
                     continue
 
                 # add the file path into search path list for file including
@@ -4229,12 +4229,13 @@ class ModuleAutoGen(AutoGen):
 
         if self.IsMakeFileCreated:
             return
-        if self.CanSkip():
-            return
 
         if not self.IsLibrary and CreateLibraryMakeFile:
             for LibraryAutoGen in self.LibraryAutoGenList:
                 LibraryAutoGen.CreateMakeFile()
+
+        if self.CanSkip():
+            return
 
         if len(self.CustomMakefile) == 0:
             Makefile = GenMake.ModuleMakefile(self)
@@ -4263,8 +4264,6 @@ class ModuleAutoGen(AutoGen):
     def CreateCodeFile(self, CreateLibraryCodeFile=True):
         if self.IsCodeFileCreated:
             return
-        if self.CanSkip():
-            return
 
         # Need to generate PcdDatabase even PcdDriver is binarymodule
         if self.IsBinaryModule and self.PcdIsDriver != '':
@@ -4278,6 +4277,9 @@ class ModuleAutoGen(AutoGen):
         if not self.IsLibrary and CreateLibraryCodeFile:
             for LibraryAutoGen in self.LibraryAutoGenList:
                 LibraryAutoGen.CreateCodeFile()
+
+        if self.CanSkip():
+            return
 
         AutoGenList = []
         IgoredAutoGenList = []
