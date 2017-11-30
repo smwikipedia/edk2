@@ -43,8 +43,7 @@
   VirtioLib|OvmfPkg/Library/VirtioLib/VirtioLib.inf
   VirtioMmioDeviceLib|OvmfPkg/Library/VirtioMmioDeviceLib/VirtioMmioDeviceLib.inf
 
-  ArmPlatformLib|ArmVirtPkg/Library/ArmXenRelocatablePlatformLib/ArmXenRelocatablePlatformLib.inf
-  ArmPlatformSysConfigLib|ArmPlatformPkg/Library/ArmPlatformSysConfigLibNull/ArmPlatformSysConfigLibNull.inf
+  ArmVirtMemInfoLib|ArmVirtPkg/Library/XenVirtMemInfoLib/XenVirtMemInfoLib.inf
 
   TimerLib|ArmPkg/Library/ArmArchTimerLib/ArmArchTimerLib.inf
 
@@ -55,11 +54,6 @@
 
 [LibraryClasses.common.UEFI_DRIVER]
   UefiScsiLib|MdePkg/Library/UefiScsiLib/UefiScsiLib.inf
-
-[BuildOptions]
-  RVCT:*_*_ARM_PLATFORM_FLAGS == --cpu Cortex-A15 -I$(WORKSPACE)/ArmVirtPkg/Include
-  GCC:*_*_ARM_PLATFORM_FLAGS == -mcpu=cortex-a15 -I$(WORKSPACE)/ArmVirtPkg/Include
-  GCC:*_*_AARCH64_PLATFORM_FLAGS == -I$(WORKSPACE)/ArmVirtPkg/Include
 
 [BuildOptions.ARM.EDKII.SEC, BuildOptions.ARM.EDKII.BASE]
   # Avoid MOVT/MOVW instruction pairs in code that may end up in the PIE

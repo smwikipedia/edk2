@@ -621,11 +621,6 @@ UefiMain (
           ShellInfoObject.ConsoleInfo->RowCounter = 0;
 
           //
-          // Reset the CTRL-C event (yes we ignore the return values)
-          //
-          Status = gBS->CheckEvent (ShellInfoObject.NewEfiShellProtocol->ExecutionBreak);
-
-          //
           // Display Prompt
           //
           Status = DoShellPrompt();
@@ -726,6 +721,7 @@ FreeResources:
 **/
 EFI_STATUS
 SetBuiltInAlias(
+  VOID
   )
 {
   EFI_STATUS          Status;
@@ -1345,9 +1341,14 @@ DoShellPrompt (
   // Null terminate the string and parse it
   //
   if (!EFI_ERROR (Status)) {
+    //
+    // Reset the CTRL-C event just before running the command (yes we ignore the return values)
+    //
+    Status = gBS->CheckEvent (ShellInfoObject.NewEfiShellProtocol->ExecutionBreak);
+
     CmdLine[BufferSize / sizeof (CHAR16)] = CHAR_NULL;
     Status = RunCommand(CmdLine);
-    }
+  }
 
   //
   // Done with this command
