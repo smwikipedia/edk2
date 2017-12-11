@@ -1543,12 +1543,12 @@ SmmIplEntry (
   Status = gBS->LocateProtocol (&gEfiSmmControl2ProtocolGuid, NULL, (VOID **)&mSmmControl2);
   ASSERT_EFI_ERROR (Status);
 
-  gSmmCorePrivate->SmramRanges = GetFullSmramRanges (&gSmmCorePrivate->SmramRangeCount);//c: The SMRAM memory map and memory range count are obtained. gSmmCorePrivate = &mSmmCorePrivateData, same thing;
+  gSmmCorePrivate->SmramRanges = GetFullSmramRanges (&gSmmCorePrivate->SmramRangeCount);//c: The SMRAM memory range map and memory range count are obtained. gSmmCorePrivate = &mSmmCorePrivateData, same thing;
 
   //
   // Open all SMRAM ranges
   //
-  Status = mSmmAccess->Open (mSmmAccess); //c: open means visiable to outside SMM
+  Status = mSmmAccess->Open (mSmmAccess); //c: open means visiable to outside SMM, we need this because IPL runs outside SMM.
   ASSERT_EFI_ERROR (Status);
 
   //
@@ -1636,22 +1636,22 @@ SmmIplEntry (
       //
       // Fill the Smram range for all SMM code
       //
-      SmramRangeSmmDriver = &gSmmCorePrivate->SmramRanges[gSmmCorePrivate->SmramRangeCount - 2]; //c: The 2nd last entry of the SmramRanges is used for SMM Drivers, thus the name SmramRangeSmmDriver.
+      SmramRangeSmmDriver = &gSmmCorePrivate->SmramRanges[gSmmCorePrivate->SmramRangeCount - 2]; //c: The 2nd last entry of the SmramRanges is used for SMM Drivers load at fixed address, thus the name SmramRangeSmmDriver.
       SmramRangeSmmDriver->CpuStart      = mCurrentSmramRange->CpuStart;//c: The previously found largest mCurrentSmramRange is used as the SmramRangeSmmDriver.
       SmramRangeSmmDriver->PhysicalStart = mCurrentSmramRange->PhysicalStart;
       SmramRangeSmmDriver->RegionState   = mCurrentSmramRange->RegionState | EFI_ALLOCATED;
       SmramRangeSmmDriver->PhysicalSize  = SmmCodeSize;//c: It means the SmramRangeSmmDriver has been consumed by SmmCodeSize.
 
-      mCurrentSmramRange->PhysicalSize  -= SmmCodeSize; //c: Adjust the mCurrentSmramRange size to reflect that SmmCodeSize of it has been consumed for SmramRangeSmmDriver range.
-      mCurrentSmramRange->CpuStart       = mCurrentSmramRange->CpuStart + SmmCodeSize; //c: Adjust the mCurrentSmramRange cpu start address to reflect that SmmCodeSize of it has been consumed for SmramRangeSmmDriver range.
-      mCurrentSmramRange->PhysicalStart  = mCurrentSmramRange->PhysicalStart + SmmCodeSize;//c: Adjust the mCurrentSmramRange physical start address to reflect that SmmCodeSize of it has been consumed for SmramRangeSmmDriver range.
+      mCurrentSmramRange->PhysicalSize  -= SmmCodeSize; //c: Adjust the mCurrentSmramRange entry's size field to reflect that SmmCodeSize of it has been consumed for SmramRangeSmmDriver range.
+      mCurrentSmramRange->CpuStart       = mCurrentSmramRange->CpuStart + SmmCodeSize; //c: Adjust the mCurrentSmramRange's  cpu start address field to reflect that SmmCodeSize of it has been consumed for SmramRangeSmmDriver range.
+      mCurrentSmramRange->PhysicalStart  = mCurrentSmramRange->PhysicalStart + SmmCodeSize;//c: Adjust the mCurrentSmramRange's physical start address field to reflect that SmmCodeSize of it has been consumed for SmramRangeSmmDriver range.
     }//c: These are all memory map handling logic. A memory map entry for a new range(SmramRangeSmmDriver) is initialized. An old mem map range entry (mCurrentSmramRange) is adjusted.
     //
     // Load SMM Core into SMRAM and execute it from SMRAM
     //
     Status = ExecuteSmmCoreFromSmram ( //c: Here goes to the PiSmmCore.inf DXE invocation entry point, i.e. SmmMain() in PiSmmCore.c
                mCurrentSmramRange, //c: The range to hold the SMM Core will also be supplied from the mCurrentSmramRange.
-               &gSmmCorePrivate->SmramRanges[gSmmCorePrivate->SmramRangeCount - 1], //c: The last entry of the SmramRanges is used for the SMM Core. It is also allocated from the mCurrentSmramRange.
+               &gSmmCorePrivate->SmramRanges[gSmmCorePrivate->SmramRangeCount - 1], //c: The last entry of the SmramRanges is used for the SMM Core. It's range also comes from the mCurrentSmramRange.
                gSmmCorePrivate //c: the context
                );
     if (EFI_ERROR (Status)) {

@@ -271,7 +271,7 @@ SmmCpuFeaturesInitializeProcessor (
         CpuDeadLoop ();
       }
     } else {
-      AsmWriteMsr64 (mSmrrPhysBaseMsr, CpuHotPlugData->SmrrBase | MTRR_CACHE_WRITE_BACK);
+      AsmWriteMsr64 (mSmrrPhysBaseMsr, CpuHotPlugData->SmrrBase | MTRR_CACHE_WRITE_BACK); //c: ref: Intel SDM Table 11-8 MTRR types
       AsmWriteMsr64 (mSmrrPhysMaskMsr, (~(CpuHotPlugData->SmrrSize - 1) & EFI_MSR_SMRR_MASK));
       mSmrrEnabled[CpuIndex] = FALSE;
     }

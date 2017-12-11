@@ -6638,7 +6638,7 @@ typedef union {
 typedef struct {
   UINT16  Limit;
   UINTN   Base;
-} IA32_DESCRIPTOR;
+} IA32_DESCRIPTOR; //c: IA SDM Figure 3-11 Descriptor Format
 #pragma pack ()
 
 #define IA32_IDT_GATE_TYPE_TASK          0x85

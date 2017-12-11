@@ -146,19 +146,19 @@ InitializeSmmIdt (
   //
   // Allocate page aligned IDT, because it might be set as read only.
   //
-  gcSmiIdtr.Base = (UINTN)AllocateCodePages (EFI_SIZE_TO_PAGES(gcSmiIdtr.Limit + 1));
+  gcSmiIdtr.Base = (UINTN)AllocateCodePages (EFI_SIZE_TO_PAGES(gcSmiIdtr.Limit + 1)); //c: The memory is allocated from SMRAM. The base value is saved in the GLOBAL variable gcSmiIdtr.
   ASSERT (gcSmiIdtr.Base != 0);
-  ZeroMem ((VOID *)gcSmiIdtr.Base, gcSmiIdtr.Limit + 1);
+  ZeroMem ((VOID *)gcSmiIdtr.Base, gcSmiIdtr.Limit + 1);//c: Zero the memory buffer saved for SMRAM.
 
   //
   // Disable Interrupt and save DXE IDT table
   //
   InterruptState = SaveAndDisableInterrupts ();
-  AsmReadIdtr (&DxeIdtr);
+  AsmReadIdtr (&DxeIdtr); //c: save current IDTR value to local variable DxeIdtr. This DXE IDTR value points to OUTSIDE of SMRAM.
   //
   // Load SMM temporary IDT table
   //
-  AsmWriteIdtr (&gcSmiIdtr);
+  AsmWriteIdtr (&gcSmiIdtr);//c: Write the newly composed gcSmiIdtr value into the IDTR register. Why need this?
   //
   // Setup SMM default exception handlers, SMM IDT table
   // will be updated and saved in gcSmiIdtr
@@ -168,8 +168,8 @@ InitializeSmmIdt (
   //
   // Restore DXE IDT table and CPU interrupt
   //
-  AsmWriteIdtr ((IA32_DESCRIPTOR *) &DxeIdtr);
-  SetInterruptState (InterruptState);
+  AsmWriteIdtr ((IA32_DESCRIPTOR *) &DxeIdtr); //c: We are not in SMM yet, so need to restore the DXE IDT.
+  SetInterruptState (InterruptState);//c: The InterruptState is used to correlate the SetInterrruptState() with the SaveAndDisableInterrupts().
 }
 
 /**
@@ -565,7 +565,7 @@ PiCpuSmmEntry (
   //
   // Find out SMRR Base and SMRR Size
   //
-  FindSmramInfo (&mCpuHotPlugData.SmrrBase, &mCpuHotPlugData.SmrrSize);
+  FindSmramInfo (&mCpuHotPlugData.SmrrBase, &mCpuHotPlugData.SmrrSize); //c: Find an as-big-as-possible memory for SMRAM with gEfiSmmAccess2ProtocolGuid protocol. The SMRAM is a continuous range.
 
   //
   // Get MP Services Protocol
@@ -681,7 +681,7 @@ PiCpuSmmEntry (
   //  |   Padding                   |
   //  +-----------------------------+
   //  |   CPU 0 SMI Entry           |
-  //  +#############################+  <-- Base of allocated buffer == CPU 0 SMBASE + 32 KB
+  //  +#############################+  <-- Base of allocated buffer == CPU 0 SMBASE + 32 KB //c: Each cpu has a internal register to hold its SMBASE
   //
 
   //
@@ -827,11 +827,11 @@ PiCpuSmmEntry (
     // |                                           |     |                                           |
     // |<-------------- Processor 0 -------------->|     |<-------------- Processor n -------------->|
     //
-    mSmmStackSize = EFI_PAGES_TO_SIZE (EFI_SIZE_TO_PAGES (PcdGet32 (PcdCpuSmmStackSize)) + 2);
-    Stacks = (UINT8 *) AllocatePages (gSmmCpuPrivate->SmmCoreEntryContext.NumberOfCpus * (EFI_SIZE_TO_PAGES (PcdGet32 (PcdCpuSmmStackSize)) + 2));
+    mSmmStackSize = EFI_PAGES_TO_SIZE (EFI_SIZE_TO_PAGES (PcdGet32 (PcdCpuSmmStackSize)) + 2); //c: Smm stack size per cpu.
+    Stacks = (UINT8 *) AllocatePages (gSmmCpuPrivate->SmmCoreEntryContext.NumberOfCpus * (EFI_SIZE_TO_PAGES (PcdGet32 (PcdCpuSmmStackSize)) + 2));//c: One stack for one cpu.
     ASSERT (Stacks != NULL);
-    mSmmStackArrayBase = (UINTN)Stacks;
-    mSmmStackArrayEnd = mSmmStackArrayBase + gSmmCpuPrivate->SmmCoreEntryContext.NumberOfCpus * mSmmStackSize - 1;
+    mSmmStackArrayBase = (UINTN)Stacks;//c: convert the pointer VALUE to a number. It is the byte address value of the base of the whole SMM stacks array.
+    mSmmStackArrayEnd = mSmmStackArrayBase + gSmmCpuPrivate->SmmCoreEntryContext.NumberOfCpus * mSmmStackSize - 1; //c: It is the byte address value of the end of the whole SMM stacks array.
   } else {
     mSmmStackSize = PcdGet32 (PcdCpuSmmStackSize);
     Stacks = (UINT8 *) AllocatePages (EFI_SIZE_TO_PAGES (gSmmCpuPrivate->SmmCoreEntryContext.NumberOfCpus * mSmmStackSize));
@@ -841,7 +841,7 @@ PiCpuSmmEntry (
   //
   // Set SMI stack for SMM base relocation
   //
-  gSmmInitStack = (UINTN) (Stacks + mSmmStackSize - sizeof (UINTN));
+  gSmmInitStack = (UINTN) (Stacks + mSmmStackSize - sizeof (UINTN)); //c: Why  - sizeof(UINTN)?  Where is this gSmmInitStack defined? I only find extern declarations.
 
   //
   // Initialize IDT
@@ -886,7 +886,7 @@ PiCpuSmmEntry (
   //
   Status = SystemTable->BootServices->InstallMultipleProtocolInterfaces (
                                         &gSmmCpuPrivate->SmmCpuHandle,
-                                        &gEfiSmmConfigurationProtocolGuid, &gSmmCpuPrivate->SmmConfiguration,
+                                        &gEfiSmmConfigurationProtocolGuid, &gSmmCpuPrivate->SmmConfiguration, //c: In the preparation phase, SMRAM is just a normal RAM.
                                         NULL
                                         );
   ASSERT_EFI_ERROR (Status);
@@ -996,7 +996,7 @@ FindSmramInfo (
   //
   // Find the largest SMRAM range between 1MB and 4GB that is at least 256K - 4K in size
   //
-  CurrentSmramRange = NULL;
+  CurrentSmramRange = NULL; //c: This code snippet is similar to PiSmmIpl.c
   for (Index = 0, MaxSize = SIZE_256KB - EFI_PAGE_SIZE; Index < mSmmCpuSmramRangeCount; Index++) {
     //
     // Skip any SMRAM region that is already allocated, needs testing, or needs ECC initialization
@@ -1020,15 +1020,15 @@ FindSmramInfo (
   *SmrrBase = (UINT32)CurrentSmramRange->CpuStart;
   *SmrrSize = (UINT32)CurrentSmramRange->PhysicalSize;
 
-  do {
+  do {//c: merge the left and right IMMEDIATE adjacent ranges. same as GetSmramCacheRange() in PiSmmIpl.c. The purpose is to find an as-large-as-possible memory range for SMRAM.
     Found = FALSE;
     for (Index = 0; Index < mSmmCpuSmramRangeCount; Index++) {
       if (mSmmCpuSmramRanges[Index].CpuStart < *SmrrBase &&
-          *SmrrBase == (mSmmCpuSmramRanges[Index].CpuStart + mSmmCpuSmramRanges[Index].PhysicalSize)) {
+          *SmrrBase == (mSmmCpuSmramRanges[Index].CpuStart + mSmmCpuSmramRanges[Index].PhysicalSize)) {//c: Range is on the immediate left side of SmramRange. i.e. [-----Range----][----SmramRange----], left adjacent
         *SmrrBase = (UINT32)mSmmCpuSmramRanges[Index].CpuStart;
         *SmrrSize = (UINT32)(*SmrrSize + mSmmCpuSmramRanges[Index].PhysicalSize);
         Found = TRUE;
-      } else if ((*SmrrBase + *SmrrSize) == mSmmCpuSmramRanges[Index].CpuStart && mSmmCpuSmramRanges[Index].PhysicalSize > 0) {
+      } else if ((*SmrrBase + *SmrrSize) == mSmmCpuSmramRanges[Index].CpuStart && mSmmCpuSmramRanges[Index].PhysicalSize > 0) { //c: Range is on the immediate right side of SmramRange. i.e. [----SmramRange----][-----Range----], right adjacent
         *SmrrSize = (UINT32)(*SmrrSize + mSmmCpuSmramRanges[Index].PhysicalSize);
         Found = TRUE;
       }

@@ -697,7 +697,7 @@ SmmMain (
   //
   // Get SMM Core Private context passed in from SMM IPL in ImageHandle.
   //
-  gSmmCorePrivate = (SMM_CORE_PRIVATE_DATA *)ImageHandle;
+  gSmmCorePrivate = (SMM_CORE_PRIVATE_DATA *)ImageHandle; //c: This ImageHandle is different from traditional sense.
 
   //
   // Fill in SMRAM physical address for the SMM Services Table and the SMM Entry Point.
@@ -727,7 +727,7 @@ SmmMain (
   for (Index = 0; mSmmCoreSmiHandlers[Index].HandlerType != NULL; Index++) {
     Status = SmiHandlerRegister (
                mSmmCoreSmiHandlers[Index].Handler,
-               mSmmCoreSmiHandlers[Index].HandlerType,//c: These handlers all have a HandlerType, so they are no root SMI handlers.
+               mSmmCoreSmiHandlers[Index].HandlerType,//c: These handlers all have a HandlerType, so NONE of them is root SMI handlers.
                &mSmmCoreSmiHandlers[Index].DispatchHandle
                );
     ASSERT_EFI_ERROR (Status);

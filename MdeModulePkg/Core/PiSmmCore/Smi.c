@@ -14,9 +14,9 @@
 
 #include "PiSmmCore.h"
 
-LIST_ENTRY  mSmiEntryList       = INITIALIZE_LIST_HEAD_VARIABLE (mSmiEntryList);
+LIST_ENTRY  mSmiEntryList       = INITIALIZE_LIST_HEAD_VARIABLE (mSmiEntryList); //c: this is a list of entry
 
-SMI_ENTRY   mRootSmiEntry = {
+SMI_ENTRY   mRootSmiEntry = { //c: while this is just one entry
   SMI_ENTRY_SIGNATURE,
   INITIALIZE_LIST_HEAD_VARIABLE (mRootSmiEntry.AllEntries),
   {0},
@@ -135,7 +135,7 @@ SmiManage (
   }
   Head = &SmiEntry->SmiHandlers;
 
-  for (Link = Head->ForwardLink; Link != Head; Link = Link->ForwardLink) {
+  for (Link = Head->ForwardLink; Link != Head; Link = Link->ForwardLink) {//c: ALL the SMI handlers belonging to current type of SMI entry will be dispatched one bye one. But may with different result status.
     SmiHandler = CR (Link, SMI_HANDLER, Link, SMI_HANDLER_SIGNATURE);
 
     Status = SmiHandler->Handler (
@@ -226,7 +226,7 @@ SmiHandlerRegister (
     return EFI_INVALID_PARAMETER;
   }
 
-  SmiHandler = AllocateZeroPool (sizeof (SMI_HANDLER));
+  SmiHandler = AllocateZeroPool (sizeof (SMI_HANDLER));//c: PiSmmCoreMemoryAllocationLib, the memory is allocated in SMRAM.
   if (SmiHandler == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }

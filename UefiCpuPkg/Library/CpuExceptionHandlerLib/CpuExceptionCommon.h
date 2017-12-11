@@ -52,9 +52,9 @@
 // Record exception handler information
 //
 typedef struct {
-  UINTN ExceptionStart;
-  UINTN ExceptionStubHeaderSize;
-  UINTN HookAfterStubHeaderStart;
+  UINTN ExceptionStart; //c: exception handler STUB table start.
+  UINTN ExceptionStubHeaderSize; //c: STUB is used to jump to the real exception handler.
+  UINTN HookAfterStubHeaderStart; 
 } EXCEPTION_HANDLER_TEMPLATE_MAP;
 
 typedef struct {
