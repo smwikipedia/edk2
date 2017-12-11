@@ -30,7 +30,6 @@
   SUPPORTED_ARCHITECTURES        = IA32|X64|IPF|ARM|AARCH64
   BUILD_TARGETS                  = DEBUG|RELEASE
   SKUID_IDENTIFIER               = DEFAULT
-  FLASH_DEFINITION               = EmbeddedPkg/EmbeddedPkg.fdf
 
 
 ################################################################################
@@ -242,7 +241,6 @@
   EmbeddedPkg/Library/PrePiLib/PrePiLib.inf
   EmbeddedPkg/Library/TemplateResetSystemLib/TemplateResetSystemLib.inf
   EmbeddedPkg/Library/TemplateRealTimeClockLib/TemplateRealTimeClockLib.inf
-  EmbeddedPkg/Library/LzmaHobCustomDecompressLib/LzmaHobCustomDecompressLib.inf
   EmbeddedPkg/Library/CoherentDmaLib/CoherentDmaLib.inf
   EmbeddedPkg/Library/NonCoherentDmaLib/NonCoherentDmaLib.inf
   EmbeddedPkg/Library/DxeDtPlatformDtbLoaderLibDefault/DxeDtPlatformDtbLoaderLibDefault.inf
@@ -264,7 +262,6 @@
 
   EmbeddedPkg/Library/AcpiLib/AcpiLib.inf
   EmbeddedPkg/Library/DebugAgentTimerLibNull/DebugAgentTimerLibNull.inf
-  EmbeddedPkg/Library/DxeHobPeCoffLib/DxeHobPeCoffLib.inf
   EmbeddedPkg/Library/FdtLib/FdtLib.inf
   EmbeddedPkg/Library/GdbDebugAgent/GdbDebugAgent.inf
   EmbeddedPkg/Library/PrePiHobLib/PrePiHobLib.inf
