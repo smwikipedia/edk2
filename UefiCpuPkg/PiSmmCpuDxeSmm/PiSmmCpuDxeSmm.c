@@ -1085,7 +1085,7 @@ ConfigSmmCodeAccessCheckOnCurrentProcessor (
   //
   // Release the spin lock user to serialize the updates to the SMM Feature Control MSR
   //
-  ReleaseSpinLock (mConfigSmmCodeAccessCheckLock);
+  ReleaseSpinLock (mConfigSmmCodeAccessCheckLock); //c: It's critical to place lock release logic here. So the AP can notify the BSP when work is done and then Bsp can stop spinning with CpuPause.
 }
 
 /**
@@ -1127,7 +1127,7 @@ ConfigSmmCodeAccessCheck (
   // Acquire Config SMM Code Access Check spin lock.  The BSP will release the
   // spin lock when it is done executing ConfigSmmCodeAccessCheckOnCurrentProcessor().
   //
-  AcquireSpinLock (mConfigSmmCodeAccessCheckLock);
+  AcquireSpinLock (mConfigSmmCodeAccessCheckLock); //c: This acquire will block until the SpinLock can be acquired.
 
   //
   // Enable SMM Code Access Check feature on the BSP.
@@ -1154,14 +1154,14 @@ ConfigSmmCodeAccessCheck (
       //
       // Call SmmStartupThisAp() to enable SMM Code Access Check on an AP.
       //
-      Status = gSmst->SmmStartupThisAp (ConfigSmmCodeAccessCheckOnCurrentProcessor, Index, &Index);
+      Status = gSmst->SmmStartupThisAp (ConfigSmmCodeAccessCheckOnCurrentProcessor, Index, &Index); //c: If PcdCpuSmmBlockStartupThisAp=FALSE, SmmStartupThisAp() will be a non-blocking call.Then we need mConfigSmmCodeAccessCheckLock for synchoronization, because the related MSR is package-scope, which is shared by all logical processors.
       ASSERT_EFI_ERROR (Status);
 
       //
       // Wait for the AP to release the Config SMM Code Access Check spin lock.
       //
       while (!AcquireSpinLockOrFail (mConfigSmmCodeAccessCheckLock)) {
-        CpuPause ();
+        CpuPause ();//c: This is the essence of "spin". IThis whole while loop executes on BSP. It will block the BSP until the previous AP dispatch is finished. Then BSP will dispatch to next AP.
       }
 
       //
