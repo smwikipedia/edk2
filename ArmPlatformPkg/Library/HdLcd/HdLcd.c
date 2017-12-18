@@ -14,12 +14,12 @@
 
 #include <Library/DebugLib.h>
 #include <Library/IoLib.h>
+#include <Library/LcdHwLib.h>
 #include <Library/LcdPlatformLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PcdLib.h>
 
 #include "HdLcd.h"
-#include "LcdGraphicsOutputDxe.h"
 
 /**********************************************************************
  *
@@ -27,6 +27,32 @@
  *  platform independent.
  *
  **********************************************************************/
+
+STATIC
+UINTN
+GetBytesPerPixel (
+  IN  LCD_BPP       Bpp
+  )
+{
+  switch(Bpp) {
+  case LCD_BITS_PER_PIXEL_24:
+    return 4;
+
+  case LCD_BITS_PER_PIXEL_16_565:
+  case LCD_BITS_PER_PIXEL_16_555:
+  case LCD_BITS_PER_PIXEL_12_444:
+    return 2;
+
+  case LCD_BITS_PER_PIXEL_8:
+  case LCD_BITS_PER_PIXEL_4:
+  case LCD_BITS_PER_PIXEL_2:
+  case LCD_BITS_PER_PIXEL_1:
+    return 1;
+
+  default:
+    return 0;
+  }
+}
 
 EFI_STATUS
 LcdInitialize (

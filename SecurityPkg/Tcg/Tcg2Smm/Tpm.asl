@@ -4,6 +4,7 @@
 
 Copyright (c) 2015 - 2017, Intel Corporation. All rights reserved.<BR>
 (c)Copyright 2016 HP Development Company, L.P.<BR>
+Copyright (c) 2017, Microsoft Corporation.  All rights reserved. <BR>
 This program and the accompanying materials 
 are licensed and made available under the terms and conditions of the BSD License 
 which accompanies this distribution.  The full text of the license may be found at 
@@ -96,7 +97,7 @@ DefinitionBlock (
 
       Name(RESO, ResourceTemplate () {
         Memory32Fixed (ReadWrite, 0xfed40000, 0x5000, REGS)
-        Interrupt(ResourceConsumer, Level, ActiveLow, Shared, , , IRQ) {12}
+        Interrupt(ResourceConsumer, Level, ActiveLow, Shared, , , INTR) {12}
       })
 
       //
@@ -119,16 +120,16 @@ DefinitionBlock (
         // Use the field name to identify the offsets in the argument
         // buffer and RESO buffer.
         //
-        CreateDWordField(Arg0, ^IRQ._INT, IRQ0)
-        CreateDWordField(RESO, ^IRQ._INT, LIRQ)
+        CreateDWordField(Arg0, ^INTR._INT, IRQ0)
+        CreateDWordField(RESO, ^INTR._INT, LIRQ)
         Store(IRQ0, LIRQ)
 
-        CreateBitField(Arg0, ^IRQ._HE, ITRG)
-        CreateBitField(RESO, ^IRQ._HE, LTRG)
+        CreateBitField(Arg0, ^INTR._HE, ITRG)
+        CreateBitField(RESO, ^INTR._HE, LTRG)
         Store(ITRG, LTRG)
 
-        CreateBitField(Arg0, ^IRQ._LL, ILVL)
-        CreateBitField(RESO, ^IRQ._LL, LLVL)
+        CreateBitField(Arg0, ^INTR._LL, ILVL)
+        CreateBitField(RESO, ^INTR._LL, LLVL)
         Store(ILVL, LLVL)
 
         //

@@ -56,7 +56,7 @@ SetSettingPcd (
   @return  The pointer to CPU feature bits mask buffer.
 **/
 UINT8 *
-GetSupportPcds (
+GetSupportPcd (
   VOID
   )
 {
@@ -77,7 +77,7 @@ GetSupportPcds (
   @return  The pointer to CPU feature bits mask buffer.
 **/
 UINT8 *
-GetConfigurationPcds (
+GetConfigurationPcd (
   VOID
   )
 {
@@ -180,8 +180,8 @@ CpuInitDataInitialize (
   //
   // Get support and configuration PCDs
   //
-  CpuFeaturesData->SupportPcds       = GetSupportPcds ();
-  CpuFeaturesData->ConfigurationPcds = GetConfigurationPcds ();
+  CpuFeaturesData->SupportPcd       = GetSupportPcd ();
+  CpuFeaturesData->ConfigurationPcd = GetConfigurationPcd ();
 }
 
 /**
@@ -321,7 +321,7 @@ CollectProcessorData (
   Entry = GetFirstNode (&CpuFeaturesData->FeatureList); //c: CpuFeaturesData->FeatureList is the registered candidate features DB, which is global and same for all processors.
   while (!IsNull (&CpuFeaturesData->FeatureList, Entry)) { //c: Traverse all the registered candidate cpu features to collect supported ones for current processor. And store a copy of the resulting feature mask for each processor.
     CpuFeature = CPU_FEATURE_ENTRY_FROM_LINK (Entry);
-    if (IsBitMaskMatch (CpuFeaturesData->SupportPcds, CpuFeature->FeatureMask)) {//c: Though the CpuCommonFeaturesLib has filtered the CpuFeatures when registeration, here we filter it AGAIN in ordre to avoid dependency on CpuCommonFeaturesLib. CpuFeaturesData->SupportPcds is collected in previous CpuInitDataInitialize() step. It is same across all processors.
+    if (IsBitMaskMatch (CpuFeaturesData->SupportPcd, CpuFeature->FeatureMask)) {//c: Though the CpuCommonFeaturesLib has filtered the CpuFeatures when registeration, here we filter it AGAIN in ordre to avoid dependency on CpuCommonFeaturesLib. CpuFeaturesData->SupportPcds is collected in previous CpuInitDataInitialize() step. It is same across all processors.
       if (CpuFeature->SupportFunc == NULL) {
         //
         // If SupportFunc is NULL, then the feature is supported.
@@ -444,29 +444,29 @@ AnalysisProcessorFeatures (
   CPU_FEATURES_DATA                    *CpuFeaturesData;
 
   CpuFeaturesData = GetCpuFeaturesData ();
-  CpuFeaturesData->CapabilityPcds = AllocatePool (CpuFeaturesData->BitMaskSize);
-  ASSERT (CpuFeaturesData->CapabilityPcds != NULL);
-  SetMem (CpuFeaturesData->CapabilityPcds, CpuFeaturesData->BitMaskSize, 0xFF);
+  CpuFeaturesData->CapabilityPcd = AllocatePool (CpuFeaturesData->BitMaskSize);
+  ASSERT (CpuFeaturesData->CapabilityPcd != NULL);
+  SetMem (CpuFeaturesData->CapabilityPcd, CpuFeaturesData->BitMaskSize, 0xFF);
   for (ProcessorNumber = 0; ProcessorNumber < NumberOfCpus; ProcessorNumber++) {
     CpuInitOrder = &CpuFeaturesData->InitOrder[ProcessorNumber];
     //
     // Calculate the last capability on all processors
     //
-    SupportedMaskAnd (CpuFeaturesData->CapabilityPcds, CpuInitOrder->FeaturesSupportedMask);//c: CpuFeaturesData->CapabilityPcds is the COMMONLY supported features across all processors.
+    SupportedMaskAnd (CpuFeaturesData->CapabilityPcd, CpuInitOrder->FeaturesSupportedMask);//c: CpuFeaturesData->CapabilityPcds is the COMMONLY supported features across all processors.
   }
   //
   // Calculate the last setting
   //
 
-  CpuFeaturesData->SettingPcds = AllocateCopyPool (CpuFeaturesData->BitMaskSize, CpuFeaturesData->CapabilityPcds);
-  ASSERT (CpuFeaturesData->SettingPcds != NULL);
-  SupportedMaskAnd (CpuFeaturesData->SettingPcds, CpuFeaturesData->ConfigurationPcds); //c: CpuFeaturesData->ConfigurationPcds is collected in previous CpuInitDataInitialize() step.
+  CpuFeaturesData->SettingPcd = AllocateCopyPool (CpuFeaturesData->BitMaskSize, CpuFeaturesData->CapabilityPcd);
+  ASSERT (CpuFeaturesData->SettingPcd != NULL);
+  SupportedMaskAnd (CpuFeaturesData->SettingPcd, CpuFeaturesData->ConfigurationPcd);//c: CpuFeaturesData->ConfigurationPcds is collected in previous CpuInitDataInitialize() step.
 
   //
   // Save PCDs and display CPU PCDs
   //
-  SetCapabilityPcd (CpuFeaturesData->CapabilityPcds);
-  SetSettingPcd (CpuFeaturesData->SettingPcds); //c: A separate CpuFeaturesData->SettingPcds is used so we can save the final enabled feature state alone.
+  SetCapabilityPcd (CpuFeaturesData->CapabilityPcd);
+  SetSettingPcd (CpuFeaturesData->SettingPcd);//c: A separate CpuFeaturesData->SettingPcds is used so we can save the final enabled feature state alone.
 
   //
   // Dump the last CPU feature list
@@ -476,8 +476,8 @@ AnalysisProcessorFeatures (
     Entry = GetFirstNode (&CpuFeaturesData->FeatureList);
     while (!IsNull (&CpuFeaturesData->FeatureList, Entry)) {
       CpuFeature = CPU_FEATURE_ENTRY_FROM_LINK (Entry);
-      if (IsBitMaskMatch (CpuFeature->FeatureMask, CpuFeaturesData->CapabilityPcds)) {
-        if (IsBitMaskMatch (CpuFeature->FeatureMask, CpuFeaturesData->SettingPcds)) {
+      if (IsBitMaskMatch (CpuFeature->FeatureMask, CpuFeaturesData->CapabilityPcd)) {
+        if (IsBitMaskMatch (CpuFeature->FeatureMask, CpuFeaturesData->SettingPcd)) {
           DEBUG ((DEBUG_INFO, "[Enable   ] "));
         } else {
           DEBUG ((DEBUG_INFO, "[Disable  ] "));
@@ -489,13 +489,13 @@ AnalysisProcessorFeatures (
       Entry = Entry->ForwardLink;
     }
     DEBUG ((DEBUG_INFO, "PcdCpuFeaturesSupport:\n"));
-    DumpCpuFeatureMask (CpuFeaturesData->SupportPcds);
+    DumpCpuFeatureMask (CpuFeaturesData->SupportPcd);
     DEBUG ((DEBUG_INFO, "PcdCpuFeaturesUserConfiguration:\n"));
-    DumpCpuFeatureMask (CpuFeaturesData->ConfigurationPcds);
+    DumpCpuFeatureMask (CpuFeaturesData->ConfigurationPcd);
     DEBUG ((DEBUG_INFO, "PcdCpuFeaturesCapability:\n"));
-    DumpCpuFeatureMask (CpuFeaturesData->CapabilityPcds);
+    DumpCpuFeatureMask (CpuFeaturesData->CapabilityPcd);
     DEBUG ((DEBUG_INFO, "PcdCpuFeaturesSetting:\n"));
-    DumpCpuFeatureMask (CpuFeaturesData->SettingPcds);
+    DumpCpuFeatureMask (CpuFeaturesData->SettingPcd);
   );
 
   for (ProcessorNumber = 0; ProcessorNumber < NumberOfCpus; ProcessorNumber++) {
@@ -506,8 +506,8 @@ AnalysisProcessorFeatures (
       // Insert each feature into processor's order list
       //
       CpuFeature = CPU_FEATURE_ENTRY_FROM_LINK (Entry);
-      if (IsBitMaskMatch (CpuFeature->FeatureMask, CpuFeaturesData->CapabilityPcds)) {//c: CpuFeaturesData->CapabilityPcds is the COMMONLY supported features across all processors.
-        CpuFeatureInOrder = AllocateCopyPool (sizeof (CPU_FEATURES_ENTRY), CpuFeature); //c: We must create a clone of the CpuFeature instance.
+      if (IsBitMaskMatch (CpuFeature->FeatureMask, CpuFeaturesData->CapabilityPcd)) {//c: CpuFeaturesData->CapabilityPcds is the COMMONLY supported features across all processors.
+        CpuFeatureInOrder = AllocateCopyPool (sizeof (CPU_FEATURES_ENTRY), CpuFeature);//c: We must create a clone of the CpuFeature instance.
         ASSERT (CpuFeatureInOrder != NULL);
         InsertTailList (&CpuInitOrder->OrderList, &CpuFeatureInOrder->Link);//c: Record the actually CPU feature in each processor's OrderList.
       }
@@ -520,13 +520,13 @@ AnalysisProcessorFeatures (
     Entry = GetFirstNode (&CpuInitOrder->OrderList);
     while (!IsNull (&CpuInitOrder->OrderList, Entry)) {
       CpuFeatureInOrder = CPU_FEATURE_ENTRY_FROM_LINK (Entry);
-      if (IsBitMaskMatch (CpuFeatureInOrder->FeatureMask, CpuFeaturesData->SettingPcds)) {
+      if (IsBitMaskMatch (CpuFeatureInOrder->FeatureMask, CpuFeaturesData->SettingPcd)) {
         Status = CpuFeatureInOrder->InitializeFunc (ProcessorNumber, CpuInfo, CpuFeatureInOrder->ConfigData, TRUE); //c: Each feature's InitializeFunc is responsible to store its related feature register values into *memory*. It doesn't manipulate the physical processor register yet.
         if (EFI_ERROR (Status)) {
           //
           // Clean the CpuFeatureInOrder->FeatureMask in setting PCD.
           //
-          SupportedMaskCleanBit (CpuFeaturesData->SettingPcds, CpuFeatureInOrder->FeatureMask);
+          SupportedMaskCleanBit (CpuFeaturesData->SettingPcd, CpuFeatureInOrder->FeatureMask);
           if (CpuFeatureInOrder->FeatureName != NULL) {
             DEBUG ((DEBUG_WARN, "Warning :: Failed to enable Feature: Name = %a.\n", CpuFeatureInOrder->FeatureName));
           } else {
@@ -553,7 +553,7 @@ AnalysisProcessorFeatures (
     // again during initialize the features.
     //
     DEBUG ((DEBUG_INFO, "Dump final value for PcdCpuFeaturesSetting:\n"));
-    DumpCpuFeatureMask (CpuFeaturesData->SettingPcds);
+    DumpCpuFeatureMask (CpuFeaturesData->SettingPcd);
 
     //
     // Dump the RegisterTable
