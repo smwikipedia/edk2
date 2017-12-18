@@ -71,7 +71,12 @@
 #define CPU_FEATURE_APIC_TPR_UPDATE_MESSAGE         (32+9)
 #define CPU_FEATURE_ENERGY_PERFORMANCE_BIAS         (32+10)
 #define CPU_FEATURE_PPIN                            (32+11)
-#define CPU_FEATURE_PROC_TRACE                      (32+12) //c: this and above defs are just bit position numbers in the cpu feature bit mask. They can be stored in the lower 16-bits of an UINT32.
+//
+// Currently, CPU_FEATURE_PROC_TRACE is the MAX feature we support.
+// If you define a feature bigger than it, please also replace it
+// in RegisterCpuFeatureLibIsFeatureValid function.
+//
+#define CPU_FEATURE_PROC_TRACE                      (32+12)
 
 #define CPU_FEATURE_BEFORE_ALL                      BIT27 //c: this and below defs are bit flags, NOT bit positions numbers. They directly map to bit positions in an UINT32.
 #define CPU_FEATURE_AFTER_ALL                       BIT28

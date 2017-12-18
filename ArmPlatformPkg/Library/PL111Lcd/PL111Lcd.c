@@ -11,11 +11,12 @@
   WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
-
+#include <Library/DebugLib.h>
 #include <Library/IoLib.h>
+#include <Library/LcdHwLib.h>
+#include <Library/LcdPlatformLib.h>
 #include <Library/MemoryAllocationLib.h>
 
-#include "LcdGraphicsOutputDxe.h"
 #include "PL111Lcd.h"
 
 /**********************************************************************
