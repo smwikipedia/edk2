@@ -1,6 +1,6 @@
 /** @file
 
-  Copyright (c) 2017, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2017 - 2018, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -302,6 +302,10 @@ DumpAcpiDMAR (
     "      X2APIC_OPT_OUT_SET ................................. 0x%02x\n",
     Dmar->Flags & EFI_ACPI_DMAR_FLAGS_X2APIC_OPT_OUT
     ));
+  DEBUG ((DEBUG_INFO,
+    "      DMA_CTRL_PLATFORM_OPT_IN_FLAG ...................... 0x%02x\n",
+    Dmar->Flags & EFI_ACPI_DMAR_FLAGS_DMA_CTRL_PLATFORM_OPT_IN_FLAG
+    ));
 
   DmarLen  = Dmar->Header.Length - sizeof(EFI_ACPI_DMAR_HEADER);
   DmarHeader = (EFI_ACPI_DMAR_STRUCTURE_HEADER *)(Dmar + 1);
@@ -528,7 +532,7 @@ ProcessRmrr (
       LowBottom = 0;
       LowTop = (UINTN)DmarRmrr->ReservedMemoryRegionBaseAddress;
       HighBottom = (UINTN)DmarRmrr->ReservedMemoryRegionLimitAddress + 1;
-      HighTop = GetTopMemory ();
+      HighTop = LShiftU64 (1, VTdInfo->HostAddressWidth + 1);
 
       SetDmaProtectedRange (
         VTdInfo,

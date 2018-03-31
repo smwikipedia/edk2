@@ -784,14 +784,17 @@ PingSendEchoRequest (
   }
 
   ASSERT(Private->ProtocolPointers.Transmit != NULL);
+
+  InsertTailList (&Private->TxList, &TxInfo->Link);
+
   Status = Private->ProtocolPointers.Transmit (Private->IpProtocol, TxInfo->Token);
 
   if (EFI_ERROR (Status)) {
+    RemoveEntryList (&TxInfo->Link);
     PingDestroyTxInfo (TxInfo, Private->IpChoice);
     return Status;
   }
 
-  InsertTailList (&Private->TxList, &TxInfo->Link);
   Private->TxCount++;
 
   return EFI_SUCCESS;
@@ -966,7 +969,7 @@ PingCreateIpInstance (
   UINTN                            HandleNum;
   EFI_HANDLE                       *HandleBuffer;
   BOOLEAN                          UnspecifiedSrc;
-  BOOLEAN                          MediaPresent;
+  EFI_STATUS                       MediaStatus;
   EFI_SERVICE_BINDING_PROTOCOL     *EfiSb;
   VOID                             *IpXCfg;
   EFI_IP6_CONFIG_DATA              Ip6Config;
@@ -978,7 +981,7 @@ PingCreateIpInstance (
 
   HandleBuffer      = NULL;
   UnspecifiedSrc    = FALSE;
-  MediaPresent      = TRUE;
+  MediaStatus       = EFI_SUCCESS;
   EfiSb             = NULL;
   IpXInterfaceInfo  = NULL;
   IfInfoSize        = 0;
@@ -1035,8 +1038,8 @@ PingCreateIpInstance (
       //
       // Check media.
       //
-      NetLibDetectMedia (HandleBuffer[HandleIndex], &MediaPresent);
-      if (!MediaPresent) {
+      NetLibDetectMediaWaitTimeout (HandleBuffer[HandleIndex], 0, &MediaStatus);
+      if (MediaStatus != EFI_SUCCESS) {
         //
         // Skip this one.
         //

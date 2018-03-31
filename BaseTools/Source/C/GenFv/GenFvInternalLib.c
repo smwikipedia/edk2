@@ -1,7 +1,7 @@
 /** @file
 This file contains the internal functions required to generate a Firmware Volume.
 
-Copyright (c) 2004 - 2017, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
 Portions Copyright (c) 2011 - 2013, ARM Ltd. All rights reserved.<BR>
 Portions Copyright (c) 2016 HP Development Company, L.P.<BR>
 This program and the accompanying materials                          
@@ -34,10 +34,10 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 #include <Guid/FfsSectionAlignmentPadding.h>
 
+#include "WinNtInclude.h"
 #include "GenFvInternalLib.h"
 #include "FvLib.h"
 #include "PeCoffLib.h"
-#include "WinNtInclude.h"
 
 #define ARMT_UNCONDITIONAL_JUMP_INSTRUCTION       0xEB000000
 #define ARM64_UNCONDITIONAL_JUMP_INSTRUCTION      0x14000000
@@ -824,7 +824,11 @@ Returns:
   //
   // Construct Map file Name 
   //
-  strcpy (PeMapFileName, FileName);
+  if (strlen (FileName) >= MAX_LONG_FILE_PATH) {
+    return EFI_ABORTED;
+  }
+  strncpy (PeMapFileName, FileName, MAX_LONG_FILE_PATH - 1);
+  PeMapFileName[MAX_LONG_FILE_PATH - 1] = 0;
   
   //
   // Change '\\' to '/', unified path format.
@@ -861,7 +865,11 @@ Returns:
     Cptr --;
   }
 	*Cptr2 = '\0';
-	strcpy (KeyWord, Cptr + 1);
+  if (strlen (Cptr + 1) >= MAX_LINE_LEN) {
+    return EFI_ABORTED;
+  }
+  strncpy (KeyWord, Cptr + 1, MAX_LINE_LEN - 1);
+  KeyWord[MAX_LINE_LEN - 1] = 0;
 	*Cptr2 = '.';
 
   //
@@ -3524,7 +3532,7 @@ Returns:
           //
           // Xip module has the same section alignment and file alignment.
           //
-          Error (NULL, 0, 3000, "Invalid", "Section-Alignment and File-Alignment do not match : %s.", FileName);
+          Error (NULL, 0, 3000, "Invalid", "PE image Section-Alignment and File-Alignment do not match : %s.", FileName);
           return EFI_ABORTED;
         }
         //
@@ -3534,7 +3542,12 @@ Returns:
           //
           // Construct the original efi file Name 
           //
-          strcpy (PeFileName, FileName);
+          if (strlen (FileName) >= MAX_LONG_FILE_PATH) {
+            Error (NULL, 0, 2000, "Invalid", "The file name %s is too long.", FileName);
+            return EFI_ABORTED;
+          }
+          strncpy (PeFileName, FileName, MAX_LONG_FILE_PATH - 1);
+          PeFileName[MAX_LONG_FILE_PATH - 1] = 0;
           Cptr = PeFileName + strlen (PeFileName);
           while (*Cptr != '.') {
             Cptr --;
@@ -3597,7 +3610,7 @@ Returns:
           //
           // Xip module has the same section alignment and file alignment.
           //
-          Error (NULL, 0, 3000, "Invalid", "Section-Alignment and File-Alignment do not match : %s.", FileName);
+          Error (NULL, 0, 3000, "Invalid", "PE image Section-Alignment and File-Alignment do not match : %s.", FileName);
           return EFI_ABORTED;
         }
         NewPe32BaseAddress = XipBase + (UINTN) CurrentPe32Section.Pe32Section + CurSecHdrSize - (UINTN)FfsFile;
@@ -3789,7 +3802,12 @@ Returns:
       //
       // Construct the original efi file name 
       //
-      strcpy (PeFileName, FileName);
+      if (strlen (FileName) >= MAX_LONG_FILE_PATH) {
+        Error (NULL, 0, 2000, "Invalid", "The file name %s is too long.", FileName);
+        return EFI_ABORTED;
+      }
+      strncpy (PeFileName, FileName, MAX_LONG_FILE_PATH - 1);
+      PeFileName[MAX_LONG_FILE_PATH - 1] = 0;
       Cptr = PeFileName + strlen (PeFileName);
       while (*Cptr != '.') {
         Cptr --;

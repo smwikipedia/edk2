@@ -1,6 +1,6 @@
 /** @file
 
-  Copyright (c) 2017, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2017 - 2018, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -27,7 +27,7 @@ typedef struct {
 
 #pragma pack()
 
-EFI_ACPI_DMAR_HEADER  *mAcpiDmarTable;
+EFI_ACPI_DMAR_HEADER  *mAcpiDmarTable = NULL;
 
 /**
   Dump DMAR DeviceScopeEntry.
@@ -498,6 +498,10 @@ DumpAcpiDMAR (
     "      X2APIC_OPT_OUT_SET ................................. 0x%02x\n",
     Dmar->Flags & EFI_ACPI_DMAR_FLAGS_X2APIC_OPT_OUT
     ));
+  DEBUG ((DEBUG_INFO,
+    "      DMA_CTRL_PLATFORM_OPT_IN_FLAG ...................... 0x%02x\n",
+    Dmar->Flags & EFI_ACPI_DMAR_FLAGS_DMA_CTRL_PLATFORM_OPT_IN_FLAG
+    ));
 
   DmarLen  = Dmar->Header.Length - sizeof(EFI_ACPI_DMAR_HEADER);
   DmarHeader = (EFI_ACPI_DMAR_STRUCTURE_HEADER *)(Dmar + 1);
@@ -806,8 +810,6 @@ ParseDmarAcpiTableDrhd (
     return EFI_OUT_OF_RESOURCES;
   }
 
-  mVtdHostAddressWidthMask = LShiftU64 (1ull, mAcpiDmarTable->HostAddressWidth) - 1;
-
   VtdIndex = 0;
   DmarHeader = (EFI_ACPI_DMAR_STRUCTURE_HEADER *)((UINTN)(mAcpiDmarTable + 1));
   while ((UINTN)DmarHeader < (UINTN)mAcpiDmarTable + mAcpiDmarTable->Header.Length) {
@@ -889,7 +891,7 @@ ScanTableInRSDT (
   EntryPtr = &Rsdt->Entry;
   for (Index = 0; Index < EntryCount; Index ++, EntryPtr ++) {
     Table = (EFI_ACPI_DESCRIPTION_HEADER*)((UINTN)(*EntryPtr));
-    if (Table->Signature == Signature) {
+    if ((Table != NULL) && (Table->Signature == Signature)) {
       return Table;
     }
   }
@@ -923,7 +925,7 @@ ScanTableInXSDT (
   for (Index = 0; Index < EntryCount; Index ++) {
     CopyMem (&EntryPtr, (VOID *)(BasePtr + Index * sizeof(UINT64)), sizeof(UINT64));
     Table = (EFI_ACPI_DESCRIPTION_HEADER*)((UINTN)(EntryPtr));
-    if (Table->Signature == Signature) {
+    if ((Table != NULL) && (Table->Signature == Signature)) {
       return Table;
     }
   }
@@ -1004,6 +1006,9 @@ GetDmarAcpiTable (
                &gEfiAcpi10TableGuid,
                &AcpiTable
                );
+  }
+  if (EFI_ERROR (Status)) {
+    return EFI_NOT_FOUND;
   }
   ASSERT (AcpiTable != NULL);
 

@@ -1,7 +1,7 @@
 /** @file
   Implementation of EFI_HTTP_PROTOCOL protocol interfaces.
 
-  Copyright (c) 2015 - 2017, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2015 - 2018, Intel Corporation. All rights reserved.<BR>
   (C) Copyright 2015-2016 Hewlett Packard Enterprise Development LP<BR>
 
   This program and the accompanying materials
@@ -65,7 +65,6 @@ EfiHttpGetModeData (
   }
 
   HttpInstance = HTTP_INSTANCE_FROM_PROTOCOL (This);
-  ASSERT (HttpInstance != NULL);
 
   if ((HttpConfigData->AccessPoint.IPv6Node == NULL) ||
       (HttpConfigData->AccessPoint.IPv4Node == NULL)) {
@@ -149,7 +148,7 @@ EfiHttpConfigure (
   }
 
   HttpInstance = HTTP_INSTANCE_FROM_PROTOCOL (This);
-  ASSERT (HttpInstance != NULL && HttpInstance->Service != NULL);
+  ASSERT (HttpInstance->Service != NULL);
 
   if (HttpConfigData != NULL) {
 
@@ -282,16 +281,16 @@ EfiHttpRequest (
   Request = HttpMsg->Data.Request;
 
   //
-  // Only support GET, HEAD, PATCH, PUT and POST method in current implementation.
+  // Only support GET, HEAD, DELETE, PATCH, PUT and POST method in current implementation.
   //
   if ((Request != NULL) && (Request->Method != HttpMethodGet) &&
-      (Request->Method != HttpMethodHead) && (Request->Method != HttpMethodPut) && 
-      (Request->Method != HttpMethodPost) && (Request->Method != HttpMethodPatch)) {
+      (Request->Method != HttpMethodHead) && (Request->Method != HttpMethodDelete) && 
+      (Request->Method != HttpMethodPut) && (Request->Method != HttpMethodPost) && 
+      (Request->Method != HttpMethodPatch)) {
     return EFI_UNSUPPORTED;
   }
 
   HttpInstance = HTTP_INSTANCE_FROM_PROTOCOL (This);
-  ASSERT (HttpInstance != NULL);
 
   //
   // Capture the method into HttpInstance.
@@ -472,6 +471,8 @@ EfiHttpRequest (
 
           FreePool (HostName);
 
+          HttpUrlFreeParser (UrlParser);
+
           //
           // Queue the HTTP token and return.
           //
@@ -623,8 +624,6 @@ EfiHttpRequest (
     goto Error3;
   }
 
-  ASSERT (RequestMsg != NULL);
-
   //
   // Every request we insert a TxToken and a response call would remove the TxToken.
   // In cases of PUT/POST/PATCH, after an initial request-response pair, we would do a
@@ -655,6 +654,10 @@ EfiHttpRequest (
   
   if (HostName != NULL) {
     FreePool (HostName);
+  }
+
+  if (UrlParser != NULL) {
+    HttpUrlFreeParser (UrlParser);
   }
   
   return EFI_SUCCESS;
@@ -699,7 +702,7 @@ Error1:
   if (Wrap != NULL) {
     FreePool (Wrap);
   }
-  if (UrlParser!= NULL) {
+  if (UrlParser != NULL) {
     HttpUrlFreeParser (UrlParser);
   }
 
@@ -881,7 +884,6 @@ EfiHttpCancel (
   }
 
   HttpInstance = HTTP_INSTANCE_FROM_PROTOCOL (This);
-  ASSERT (HttpInstance != NULL);
 
   if (HttpInstance->State != HTTP_STATE_TCP_CONNECTED) {
     return EFI_NOT_STARTED;
@@ -1539,7 +1541,6 @@ EfiHttpResponse (
   }
   
   HttpInstance = HTTP_INSTANCE_FROM_PROTOCOL (This);
-  ASSERT (HttpInstance != NULL);
 
   if (HttpInstance->State != HTTP_STATE_TCP_CONNECTED) {
     return EFI_NOT_STARTED;
@@ -1635,7 +1636,6 @@ EfiHttpPoll (
   }
 
   HttpInstance = HTTP_INSTANCE_FROM_PROTOCOL (This);
-  ASSERT (HttpInstance != NULL);
 
   if (HttpInstance->State != HTTP_STATE_TCP_CONNECTED) {
     return EFI_NOT_STARTED;

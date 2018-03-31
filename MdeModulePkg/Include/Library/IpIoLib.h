@@ -310,6 +310,8 @@ typedef struct _IP_IO_IP_INFO {
 
 /**
   Create a new IP_IO instance.
+
+  If IpVersion is not IP_VERSION_4 or IP_VERSION_6, then ASSERT().
   
   This function uses IP4/IP6 service binding protocol in Controller to create
   an IP4/IP6 child (aka IP4/IP6 instance).
@@ -353,14 +355,17 @@ IpIoDestroy (
 
 /**
   Stop an IP_IO instance.
+
+  If Ip version is not IP_VERSION_4 or IP_VERSION_6, then ASSERT().
   
   This function is paired with IpIoOpen(). The IP_IO will be unconfigured, and all
   pending send/receive tokens will be canceled.
 
   @param[in, out]  IpIo            The pointer to the IP_IO instance that needs to stop.
 
-  @retval          EFI_SUCCESS     The IP_IO instance stopped successfully.
-  @retval          Others          Anrror condition occurred.
+  @retval          EFI_SUCCESS            The IP_IO instance stopped successfully.
+  @retval          EFI_INVALID_PARAMETER  Invalid input parameter.
+  @retval          Others                 Anrror condition occurred.
 
 **/
 EFI_STATUS
@@ -371,7 +376,9 @@ IpIoStop (
 
 /**
   Open an IP_IO instance for use.
-  
+
+  If Ip version is not IP_VERSION_4 or IP_VERSION_6, then ASSERT().
+
   This function is called after IpIoCreate(). It is used for configuring the IP
   instance and register the callbacks and their context data for sending and
   receiving IP packets.
@@ -381,11 +388,13 @@ IpIoStop (
   @param[in]       OpenData           The configuration data and callbacks for
                                       the IP_IO instance.
 
-  @retval          EFI_SUCCESS        The IP_IO instance opened with OpenData
-                                      successfully.
-  @retval          EFI_ACCESS_DENIED  The IP_IO instance is configured; avoid  
-                                      reopening it.
-  @retval          Others             An error condition occurred.
+  @retval          EFI_SUCCESS            The IP_IO instance opened with OpenData
+                                          successfully.
+  @retval          EFI_ACCESS_DENIED      The IP_IO instance is configured, avoid to 
+                                          reopen it.
+  @retval          EFI_UNSUPPORTED        IPv4 RawData mode is no supported.
+  @retval          EFI_INVALID_PARAMETER  Invalid input parameter.
+  @retval          Others                 Error condition occurred.
 
 **/
 EFI_STATUS
@@ -398,7 +407,7 @@ IpIoOpen (
 /**
   Send out an IP packet.
   
-  This function is called after IpIoOpen(). The data to be sent are wrapped in
+  This function is called after IpIoOpen(). The data to be sent is wrapped in
   Pkt. The IP instance wrapped in IpIo is used for sending by default but can be
   overriden by Sender. Other sending configs, like source address and gateway
   address etc., are specified in OverrideData.
@@ -418,6 +427,7 @@ IpIoOpen (
   @retval          EFI_INVALID_PARAMETER The input parameter is not correct.
   @retval          EFI_NOT_STARTED       The IpIo is not configured.
   @retval          EFI_OUT_OF_RESOURCES  Failed due to resource limit.
+  @retval          Others                Error condition occurred.
 
 **/
 EFI_STATUS
@@ -428,12 +438,15 @@ IpIoSend (
   IN     IP_IO_IP_INFO  *Sender        OPTIONAL,
   IN     VOID           *Context       OPTIONAL,
   IN     VOID           *NotifyData    OPTIONAL,
-  IN     EFI_IP_ADDRESS *Dest,
+  IN     EFI_IP_ADDRESS *Dest          OPTIONAL,
   IN     IP_IO_OVERRIDE *OverrideData  OPTIONAL
   );
 
 /**
   Cancel the IP transmit token that wraps this Packet.
+
+  If IpIo is NULL, then ASSERT().
+  If Packet is NULL, then ASSERT().
 
   @param[in]  IpIo                  The pointer to the IP_IO instance.
   @param[in]  Packet                The pointer to the packet of NET_BUF to cancel.
@@ -448,6 +461,9 @@ IpIoCancelTxToken (
 
 /**
   Add a new IP instance for sending data.
+
+  If IpIo is NULL, then ASSERT().
+  If Ip version is not IP_VERSION_4 or IP_VERSION_6, then ASSERT().
   
   The function is used to add the IP_IO to the IP_IO sending list. The caller
   can later use IpIoFindSender() to get the IP_IO and call IpIoSend() to send
@@ -468,6 +484,8 @@ IpIoAddIp (
 /**
   Configure the IP instance of this IpInfo and start the receiving if IpConfigData
   is not NULL.
+
+  If Ip version is not IP_VERSION_4 or IP_VERSION_6, then ASSERT().
 
   @param[in, out]  IpInfo          The pointer to the IP_IO_IP_INFO instance.
   @param[in, out]  IpConfigData    The IP4 or IP6 configure data used to configure 
@@ -491,6 +509,8 @@ IpIoConfigIp (
 /**
   Destroy an IP instance maintained in IpIo->IpList for
   sending purpose.
+
+  If Ip version is not IP_VERSION_4 or IP_VERSION_6, then ASSERT().  
   
   This function pairs with IpIoAddIp(). The IpInfo is previously created by
   IpIoAddIp(). The IP_IO_IP_INFO::RefCnt is decremented and the IP instance
@@ -520,7 +540,7 @@ IpIoRemoveIp (
   @param[in]       Src               The local IP address.
 
   @return The pointer to the IP protocol can be used for sending purpose and its local
-          address is the same with Src.
+          address is the same with Src. NULL if failed.
 
 **/
 IP_IO_IP_INFO *
@@ -543,6 +563,7 @@ IpIoFindSender (
   @param[out]  IsHard                If TRUE, indicates that it is a hard error.
   @param[out]  Notify                If TRUE, SockError needs to be notified.
 
+  @retval EFI_UNSUPPORTED            Unrecognizable ICMP error code
   @return The ICMP Error Status, such as EFI_NETWORK_UNREACHABLE.
 
 **/
@@ -576,10 +597,12 @@ IpIoGetIcmpErrStatus (
   @retval      EFI_INVALID_PARAMETER The Neighbor Address is invalid.
   @retval      EFI_NOT_FOUND         The neighbor cache entry is not in the 
                                      neighbor table.  
+  @retval      EFI_UNSUPPORTED       IP version is IPv4, which doesn't support neighbor cache refresh.
   @retval      EFI_OUT_OF_RESOURCES  Failed due to resource limitations.
 
 **/
 EFI_STATUS
+EFIAPI
 IpIoRefreshNeighbor (
   IN IP_IO           *IpIo,
   IN EFI_IP_ADDRESS  *Neighbor,
