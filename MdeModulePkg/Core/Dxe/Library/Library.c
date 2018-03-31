@@ -70,7 +70,7 @@ CoreAcquireLock (
   ASSERT (Lock != NULL);
   ASSERT (Lock->Lock == EfiLockReleased);
 
-  Lock->OwnerTpl = CoreRaiseTpl (Lock->Tpl);
+  Lock->OwnerTpl = CoreRaiseTpl (Lock->Tpl); //Comment: change gEfiCurrentTpl to the Lock's TPL. The old gEfiCurrentTpl is stored in Lock->OwnerTpl. Interrupt will be disabled if Lock's TPL is TPL_HIGH_LEVEL. Actually, TPL_HIGH_LEVEL IS implemented by disableing CPU interrupts. 
   Lock->Lock     = EfiLockAcquired;
 }
 

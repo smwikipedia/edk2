@@ -32,7 +32,7 @@ InternalX86ReadIdtr (
   )
 {
   _asm {
-    mov     eax, Idtr
-    sidt    fword ptr [eax]
+    mov     eax, Idtr // Idtr is an argument on the stack that hold the IDTR structure.
+    sidt    fword ptr [eax] // store the IDTR 6-byte structure to the address pointed to by EAX. (fword is 6 bytes: https://docs.microsoft.com/en-us/cpp/assembler/masm/fword)
   }
 }

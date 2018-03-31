@@ -74,7 +74,7 @@ CoreRaiseTpl (
   //
   // If raising to high level, disable interrupts
   //
-  if (NewTpl >= TPL_HIGH_LEVEL  &&  OldTpl < TPL_HIGH_LEVEL) {
+  if (NewTpl >= TPL_HIGH_LEVEL  &&  OldTpl < TPL_HIGH_LEVEL) { //Comment: If the TPL is changing "across" the TPL_HIGH_LEVEL boundary, we need to re-disable the interrupt.
     CoreSetInterruptState (FALSE);
   }
 
@@ -106,35 +106,35 @@ CoreRestoreTpl (
   EFI_TPL     PendingTpl;
 
   OldTpl = gEfiCurrentTpl;
-  if (NewTpl > OldTpl) {
+  if (NewTpl > OldTpl) { //Comment: Check NewTpl must <= OldTpl
     DEBUG ((EFI_D_ERROR, "FATAL ERROR - RestoreTpl with NewTpl(0x%x) > OldTpl(0x%x)\n", NewTpl, OldTpl));
     ASSERT (FALSE);
   }
-  ASSERT (VALID_TPL (NewTpl));
+  ASSERT (VALID_TPL (NewTpl)); // Comment: Check a valid TPL must be <= TPL_HIGH_LEVEL
 
   //
   // If lowering below HIGH_LEVEL, make sure
   // interrupts are enabled
   //
 
-  if (OldTpl >= TPL_HIGH_LEVEL  &&  NewTpl < TPL_HIGH_LEVEL) {
-    gEfiCurrentTpl = TPL_HIGH_LEVEL;
+  if (OldTpl >= TPL_HIGH_LEVEL  &&  NewTpl < TPL_HIGH_LEVEL) {//Comment: If dropping "accross" the TPL_HIGH_LEVEL boundary. The interrupt must have been disabled.
+    gEfiCurrentTpl = TPL_HIGH_LEVEL; //Comment: This seems totally redundant? Because the newly assigned gEfiCurrentTpl is never checked before next assignment.
   }
 
   //
   // Dispatch any pending events
   //
   while (gEventPending != 0) {
-    PendingTpl = (UINTN) HighBitSet64 (gEventPending);
-    if (PendingTpl <= NewTpl) {
+    PendingTpl = (UINTN) HighBitSet64 (gEventPending);//Comment: gEventPending is checked but not modified here.
+    if (PendingTpl <= NewTpl) { //Comment: No pending events with TPL > NewTpl, so nothing to dispatch.
       break;
     }
 
-    gEfiCurrentTpl = PendingTpl;
+    gEfiCurrentTpl = PendingTpl; //Comment: we record the newly found PendingTpl which is higher than the NewTpl into the gEfiCurrentTpl because FW will execute at that TPL now. And this can help achieve the TPL "climbing".
     if (gEfiCurrentTpl < TPL_HIGH_LEVEL) {
-      CoreSetInterruptState (TRUE);
+      CoreSetInterruptState (TRUE);//Comment: Why enable interrupt here? Why not just rely on the line 151?
     }
-    CoreDispatchEventNotifies (gEfiCurrentTpl);
+    CoreDispatchEventNotifies (gEfiCurrentTpl); //Comment: gEventPending is modified here. CoreDispatchEventNnotifies() and CoreRestoreTpl() are coupled recursively.
   }
 
   //

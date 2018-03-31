@@ -42,6 +42,6 @@ HighBitSet32 (
   if (Operand == 0) {
     return - 1;
   }
-  for (BitIndex = 31; (INT32)Operand > 0; BitIndex--, Operand <<= 1);
+  for (BitIndex = 31; (INT32)Operand > 0; BitIndex--, Operand <<= 1); //Comment: the UINT32 is converted into INT32 to detect the sign bit.
   return BitIndex;
 }

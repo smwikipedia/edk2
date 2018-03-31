@@ -169,8 +169,8 @@ CoreDispatchEventNotifies (
   IEVENT          *Event;
   LIST_ENTRY      *Head;
 
-  CoreAcquireEventLock ();
-  ASSERT (gEventQueueLock.OwnerTpl == Priority);
+  CoreAcquireEventLock (); //Comment: Raise gEfiCurrentTpl to TPL_HIGH_LEVEL. i.e. timer interrupt is disabled.
+  ASSERT (gEventQueueLock.OwnerTpl == Priority); //Comment: Ensure previous gEfiCurrentTpl == Priority
   Head = &gEventQueue[Priority];
 
   //
@@ -191,7 +191,7 @@ CoreDispatchEventNotifies (
       Event->SignalCount = 0;
     }
 
-    CoreReleaseEventLock ();
+    CoreReleaseEventLock (); //Comment: This will call CoreRestoreTpl(), which will "possibly" call CoreDispatchEventNotifies() again with a "higher" TPL that has pending events. Such recursion ensures that higher TPL event's notify func is invoked before lower TPL events.????
 
     //
     // Notify this event
@@ -202,7 +202,7 @@ CoreDispatchEventNotifies (
     //
     // Check for next pending event
     //
-    CoreAcquireEventLock ();
+    CoreAcquireEventLock ();//Comment: We need to acquire the lock again so that we can release it again.
   }
 
   gEventPending &= ~(UINTN)(1 << Priority);
@@ -492,16 +492,16 @@ CoreCreateEventInternal (
     IEvent->RuntimeData.NotifyFunction = NotifyFunction;
     IEvent->RuntimeData.NotifyContext  = (VOID *) NotifyContext;
     IEvent->RuntimeData.Event          = (EFI_EVENT *) IEvent;
-    InsertTailList (&gRuntime->EventHead, &IEvent->RuntimeData.Link);
+    InsertTailList (&gRuntime->EventHead, &IEvent->RuntimeData.Link); //Comment: Record the event in the Runtime AP
   }
 
-  CoreAcquireEventLock ();
+  CoreAcquireEventLock (); //Comment: disable the interrupt, rasie the gEfiCurrentTpl to HIGH
 
   if ((Type & EVT_NOTIFY_SIGNAL) != 0x00000000) {
     //
     // The Event's NotifyFunction must be queued whenever the event is signaled
     //
-    InsertHeadList (&gEventSignalQueue, &IEvent->SignalLink);
+    InsertHeadList (&gEventSignalQueue, &IEvent->SignalLink); //Comment: Once an event is inerted into gEventSignalQueue, it can be removed by CoreCloseEvent().
   }
 
   CoreReleaseEventLock ();
@@ -604,13 +604,13 @@ CoreCheckEvent (
     return EFI_INVALID_PARAMETER;
   }
 
-  if ((Event->Type & EVT_NOTIFY_SIGNAL) != 0) {
+  if ((Event->Type & EVT_NOTIFY_SIGNAL) != 0) { //Comment: EVT_NOTIFY_SIGNAL and EVT_NOTIFY_WAIT are just dispatched through different means.
     return EFI_INVALID_PARAMETER;
   }
 
   Status = EFI_NOT_READY;
 
-  if ((Event->SignalCount == 0) && ((Event->Type & EVT_NOTIFY_WAIT) != 0)) {
+  if ((Event->SignalCount == 0) && ((Event->Type & EVT_NOTIFY_WAIT) != 0)) { //Comment: If the event is of EVT_NOTIFY_WAIT type, its SignalCount should always be zero. According to UEFI spec, just queue it to gEventQueue immediately for later dispatch.
 
     //
     // Queue the wait notify function
@@ -626,7 +626,7 @@ CoreCheckEvent (
   // If the even looks signalled, get the lock and clear it
   //
 
-  if (Event->SignalCount != 0) {
+  if (Event->SignalCount != 0) {//Comment: the SignalCount !=0, so it should be a EVT_NOTIFY_SIGNAL type. So it must be in the gEventQueue already or even dispatched. So its SignalCount can be cleared. An EVT_NOTIFY_SIGNAL event's SignalCount is only modified in CoreSignalEvent(). EVT_NOTIFY_WAIT event's SignalCount is always 0.
     CoreAcquireEventLock ();
 
     if (Event->SignalCount != 0) {
@@ -691,7 +691,7 @@ CoreWaitForEvent (
       //
       // provide index of event that caused problem
       //
-      if (Status != EFI_NOT_READY) {
+      if (Status != EFI_NOT_READY) {//Comment: Wait until at least one event's status is not EFI_NOT_READY, it can be EFI_SUCCESS, which means at one event is signaled. Or EFI_INVALID_PARAMETER.
         if (UserIndex != NULL) {
           *UserIndex = Index;
         }
@@ -742,7 +742,7 @@ CoreCloseEvent (
     CoreSetTimer (Event, TimerCancel, 0);
   }
 
-  CoreAcquireEventLock ();
+  CoreAcquireEventLock (); //Comment: Disable interrupt.
 
   //
   // If the event is queued somewhere, remove it

@@ -6637,7 +6637,7 @@ typedef union {
 #pragma pack (1)
 typedef struct {
   UINT16  Limit;
-  UINTN   Base;
+  UINTN   Base; // PEI is always 32-bit. So IA32_DESCRIPTO is 6-byte in total.
 } IA32_DESCRIPTOR;
 #pragma pack ()
 

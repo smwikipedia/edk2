@@ -108,7 +108,7 @@ CoreCheckTimers (
   //
   // Check the timer database for expired timers
   //
-  CoreAcquireLock (&mEfiTimerLock);
+  CoreAcquireLock (&mEfiTimerLock); //Comment: mEfiTimerLock is of (TPL_HIGH_LEVEL - 1), it will not diable the interrupt.
   SystemTime = CoreCurrentSystemTime ();
 
   while (!IsListEmpty (&mEfiTimerList)) {

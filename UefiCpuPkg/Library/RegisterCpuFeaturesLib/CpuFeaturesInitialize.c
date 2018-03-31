@@ -154,7 +154,7 @@ CpuInitDataInitialize (
   //
   // Collect CPU Features information
   //
-  Entry = GetFirstNode (&CpuFeaturesData->FeatureList);
+  Entry = GetFirstNode (&CpuFeaturesData->FeatureList); // &FeatureList is not NULL, but Entry is NULL as of now.
   while (!IsNull (&CpuFeaturesData->FeatureList, Entry)) {
     CpuFeature = CPU_FEATURE_ENTRY_FROM_LINK (Entry);
     ASSERT (CpuFeature->InitializeFunc != NULL);

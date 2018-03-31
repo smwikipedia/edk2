@@ -44,7 +44,7 @@ GetPeiServicesTablePointer (
   IA32_DESCRIPTOR   Idtr;
   
   AsmReadIdtr (&Idtr);
-  PeiServices = (CONST EFI_PEI_SERVICES **) (*(UINTN*)(Idtr.Base - sizeof (UINTN)));
+  PeiServices = (CONST EFI_PEI_SERVICES **) (*(UINTN*)(Idtr.Base - sizeof (UINTN)));//Refer PI PEI Spec. 5.4 PEI Services Table Retrieval
   ASSERT (PeiServices != NULL);
   return PeiServices;
 }
