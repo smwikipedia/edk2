@@ -1,7 +1,7 @@
 /** @file
   SMI management.
 
-  Copyright (c) 2009 - 2017, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2018, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials are licensed and made available 
   under the terms and conditions of the BSD License which accompanies this 
   distribution.  The full text of the license may be found at        
@@ -14,9 +14,9 @@
 
 #include "PiSmmCore.h"
 
-LIST_ENTRY  mSmiEntryList       = INITIALIZE_LIST_HEAD_VARIABLE (mSmiEntryList);
+LIST_ENTRY  mSmiEntryList       = INITIALIZE_LIST_HEAD_VARIABLE (mSmiEntryList); //c: this is a list of entry
 
-SMI_ENTRY   mRootSmiEntry = {
+SMI_ENTRY   mRootSmiEntry = { //c: while this is just one entry
   SMI_ENTRY_SIGNATURE,
   INITIALIZE_LIST_HEAD_VARIABLE (mRootSmiEntry.AllEntries),
   {0},
@@ -135,7 +135,7 @@ SmiManage (
   }
   Head = &SmiEntry->SmiHandlers;
 
-  for (Link = Head->ForwardLink; Link != Head; Link = Link->ForwardLink) {
+  for (Link = Head->ForwardLink; Link != Head; Link = Link->ForwardLink) {//c: ALL the SMI handlers belonging to current type of SMI entry will be dispatched one bye one. But may with different result status.
     SmiHandler = CR (Link, SMI_HANDLER, Link, SMI_HANDLER_SIGNATURE);
 
     Status = SmiHandler->Handler (
@@ -226,7 +226,7 @@ SmiHandlerRegister (
     return EFI_INVALID_PARAMETER;
   }
 
-  SmiHandler = AllocateZeroPool (sizeof (SMI_HANDLER));
+  SmiHandler = AllocateZeroPool (sizeof (SMI_HANDLER));//c: PiSmmCoreMemoryAllocationLib, the memory is allocated in SMRAM.
   if (SmiHandler == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
@@ -244,17 +244,17 @@ SmiHandlerRegister (
     //
     // None root SMI handler
     //
-    SmiEntry = SmmCoreFindSmiEntry ((EFI_GUID *) HandlerType, TRUE);
+    SmiEntry = SmmCoreFindSmiEntry ((EFI_GUID *) HandlerType, TRUE); //c: Finds the SMI entry for the requested handler type. And create a new SMI entry if not found.
     if (SmiEntry == NULL) {
       return EFI_OUT_OF_RESOURCES;
     }
   }
   List = &SmiEntry->SmiHandlers;
 
-  SmiHandler->SmiEntry = SmiEntry;
-  InsertTailList (List, &SmiHandler->Link);
+  SmiHandler->SmiEntry = SmiEntry;//c: Associate the SmiHandler and SmiEntry together.
+  InsertTailList (List, &SmiHandler->Link);//c: Associate the SmiHandler and SmiEntry together.
 
-  *DispatchHandle = (EFI_HANDLE) SmiHandler;
+  *DispatchHandle = (EFI_HANDLE) SmiHandler; //c: DispatchHandle is the address of the SmiHandler structure.
 
   return EFI_SUCCESS;
 }
@@ -276,14 +276,41 @@ SmiHandlerUnRegister (
 {
   SMI_HANDLER  *SmiHandler;
   SMI_ENTRY    *SmiEntry;
+  LIST_ENTRY   *EntryLink;
+  LIST_ENTRY   *HandlerLink;
 
-  SmiHandler = (SMI_HANDLER *) DispatchHandle;
-
-  if (SmiHandler == NULL) {
+  if (DispatchHandle == NULL) {
     return EFI_INVALID_PARAMETER;
   }
 
-  if (SmiHandler->Signature != SMI_HANDLER_SIGNATURE) {
+  //
+  // Look for it in root SMI handlers
+  //
+  SmiHandler = NULL;
+  for ( HandlerLink = GetFirstNode (&mRootSmiEntry.SmiHandlers)
+      ; !IsNull (&mRootSmiEntry.SmiHandlers, HandlerLink) && (SmiHandler != DispatchHandle)
+      ; HandlerLink = GetNextNode (&mRootSmiEntry.SmiHandlers, HandlerLink)
+      ) {
+    SmiHandler = CR (HandlerLink, SMI_HANDLER, Link, SMI_HANDLER_SIGNATURE);
+  }
+
+  //
+  // Look for it in non-root SMI handlers
+  //
+  for ( EntryLink = GetFirstNode (&mSmiEntryList)
+      ; !IsNull (&mSmiEntryList, EntryLink) && (SmiHandler != DispatchHandle)
+      ; EntryLink = GetNextNode (&mSmiEntryList, EntryLink)
+      ) {
+    SmiEntry = CR (EntryLink, SMI_ENTRY, AllEntries, SMI_ENTRY_SIGNATURE);
+    for ( HandlerLink = GetFirstNode (&SmiEntry->SmiHandlers)
+        ; !IsNull (&SmiEntry->SmiHandlers, HandlerLink) && (SmiHandler != DispatchHandle)
+        ; HandlerLink = GetNextNode (&SmiEntry->SmiHandlers, HandlerLink)
+        ) {
+      SmiHandler = CR (HandlerLink, SMI_HANDLER, Link, SMI_HANDLER_SIGNATURE);
+    }
+  }
+
+  if (SmiHandler != DispatchHandle) {
     return EFI_INVALID_PARAMETER;
   }
 

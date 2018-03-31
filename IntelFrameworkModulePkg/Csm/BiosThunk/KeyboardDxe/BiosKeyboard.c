@@ -1,7 +1,7 @@
 /** @file
   ConsoleOut Routines that speak VGA.
 
-Copyright (c) 2006 - 2017, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
 
 This program and the accompanying materials
 are licensed and made available under the terms and conditions
@@ -269,7 +269,9 @@ BiosKeyboardDriverBindingStart (
   BiosKeyboardPrivate->StatusRegisterAddress      = KEYBOARD_8042_STATUS_REGISTER;
   BiosKeyboardPrivate->CommandRegisterAddress     = KEYBOARD_8042_COMMAND_REGISTER;
   BiosKeyboardPrivate->ExtendedKeyboard           = TRUE;
-  
+
+  BiosKeyboardPrivate->KeyState.KeyShiftState     = 0;
+  BiosKeyboardPrivate->KeyState.KeyToggleState    = 0;
   BiosKeyboardPrivate->Queue.Front                = 0;
   BiosKeyboardPrivate->Queue.Rear                 = 0;
   BiosKeyboardPrivate->QueueForNotify.Front       = 0;
@@ -978,6 +980,8 @@ KeyboardReadKeyStrokeWorker (
   //
   Status = CheckQueue (&BiosKeyboardPrivate->Queue);
   if (EFI_ERROR (Status)) {
+    ZeroMem (&KeyData->Key, sizeof (KeyData->Key));
+    CopyMem (&KeyData->KeyState, &BiosKeyboardPrivate->KeyState, sizeof (EFI_KEY_STATE));
     gBS->RestoreTPL (OldTpl);
     return EFI_NOT_READY;
   }
@@ -1733,98 +1737,6 @@ CheckKeyboardConnect (
 }
 
 /**
-   Disable NULL pointer detection
-*/
-VOID
-DisableNullDetection (
-  VOID
-  )
-{
-  EFI_STATUS                            Status;
-  EFI_GCD_MEMORY_SPACE_DESCRIPTOR       Desc;
-
-  if ((PcdGet8 (PcdNullPointerDetectionPropertyMask) & BIT0) == 0) {
-    return;
-  }
-
-  //
-  // Check current capabilities and attributes
-  //
-  Status = gDS->GetMemorySpaceDescriptor (0, &Desc);
-  ASSERT_EFI_ERROR (Status);
-
-  //
-  // Try to add EFI_MEMORY_RP support if necessary
-  //
-  if ((Desc.Capabilities & EFI_MEMORY_RP) == 0) {
-    Desc.Capabilities |= EFI_MEMORY_RP;
-    Status = gDS->SetMemorySpaceCapabilities (0, EFI_PAGES_TO_SIZE(1),
-                                              Desc.Capabilities);
-    ASSERT_EFI_ERROR (Status);
-    if (EFI_ERROR (Status)) {
-      return;
-    }
-  }
-
-  //
-  // Don't bother if EFI_MEMORY_RP is already cleared.
-  //
-  if ((Desc.Attributes & EFI_MEMORY_RP) != 0) {
-    Desc.Attributes &= ~EFI_MEMORY_RP;
-    Status = gDS->SetMemorySpaceAttributes (0, EFI_PAGES_TO_SIZE(1),
-                                            Desc.Attributes);
-    ASSERT_EFI_ERROR (Status);
-  } else {
-    DEBUG ((DEBUG_WARN, "!!! Page 0 is supposed to be disabled !!!\r\n"));
-  }
-}
-
-/**
-   Enable NULL pointer detection
-*/
-VOID
-EnableNullDetection (
-  VOID
-  )
-{
-  EFI_STATUS                            Status;
-  EFI_GCD_MEMORY_SPACE_DESCRIPTOR       Desc;
-
-  if ((PcdGet8 (PcdNullPointerDetectionPropertyMask) & BIT0) == 0) {
-    return;
-  }
-
-  //
-  // Check current capabilities and attributes
-  //
-  Status = gDS->GetMemorySpaceDescriptor (0, &Desc);
-  ASSERT_EFI_ERROR (Status);
-
-  //
-  // Try to add EFI_MEMORY_RP support if necessary
-  //
-  if ((Desc.Capabilities & EFI_MEMORY_RP) == 0) {
-    Desc.Capabilities |= EFI_MEMORY_RP;
-    Status = gDS->SetMemorySpaceCapabilities (0, EFI_PAGES_TO_SIZE(1),
-                                              Desc.Capabilities);
-    ASSERT_EFI_ERROR (Status);
-    if (EFI_ERROR (Status)) {
-      return;
-    }
-  }
-
-  //
-  // Don't bother if EFI_MEMORY_RP is already set.
-  //
-  if ((Desc.Attributes & EFI_MEMORY_RP) == 0) {
-    Desc.Attributes |= EFI_MEMORY_RP;
-    Status = gDS->SetMemorySpaceAttributes (0, EFI_PAGES_TO_SIZE(1),
-                                            Desc.Attributes);
-    ASSERT_EFI_ERROR (Status);
-  }
-}
-
-/**
   Timer event handler: read a series of key stroke from 8042
   and put them into memory key buffer. 
   It is registered as running under TPL_NOTIFY
@@ -1932,15 +1844,12 @@ BiosKeyboardTimerHandler (
 
 
   //
-  // Disable NULL pointer detection temporarily
-  //
-  DisableNullDetection ();
-
-  //
   // Clear the CTRL and ALT BDA flag
   //
-  KbFlag1 = *((UINT8 *) (UINTN) 0x417);  // read the STATUS FLAGS 1
-  KbFlag2 = *((UINT8 *) (UINTN) 0x418); // read STATUS FLAGS 2
+  ACCESS_PAGE0_CODE (
+    KbFlag1 = *((UINT8 *) (UINTN) 0x417); // read the STATUS FLAGS 1
+    KbFlag2 = *((UINT8 *) (UINTN) 0x418); // read STATUS FLAGS 2
+  );
 
   DEBUG_CODE (
     {
@@ -2008,15 +1917,12 @@ BiosKeyboardTimerHandler (
   //
   // Clear left alt and left ctrl BDA flag
   //
-  KbFlag2 &= ~(KB_LEFT_ALT_PRESSED | KB_LEFT_CTRL_PRESSED);
-  *((UINT8 *) (UINTN) 0x418) = KbFlag2;
-  KbFlag1 &= ~0x0C;                      
-  *((UINT8 *) (UINTN) 0x417) = KbFlag1; 
-
-  //
-  // Restore NULL pointer detection
-  //
-  EnableNullDetection ();
+  ACCESS_PAGE0_CODE (
+    KbFlag2 &= ~(KB_LEFT_ALT_PRESSED | KB_LEFT_CTRL_PRESSED);
+    *((UINT8 *) (UINTN) 0x418) = KbFlag2;
+    KbFlag1 &= ~0x0C;
+    *((UINT8 *) (UINTN) 0x417) = KbFlag1;
+  );
   
   //
   // Output EFI input key and shift/toggle state
@@ -2084,6 +1990,12 @@ BiosKeyboardTimerHandler (
   }
 
   Enqueue (&BiosKeyboardPrivate->Queue, &KeyData);
+
+  //
+  // Save the current key state
+  //
+  CopyMem (&BiosKeyboardPrivate->KeyState, &KeyData.KeyState, sizeof (EFI_KEY_STATE));
+
   //
   // Leave critical section and return
   //

@@ -1,7 +1,7 @@
 /** @file
   CPU Exception Library provides PEI/DXE/SMM CPU common exception handler.
 
-Copyright (c) 2012 - 2017, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2012 - 2018, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials are licensed and made available under
 the terms and conditions of the BSD License that accompanies this distribution.
 The full text of the license may be found at
@@ -98,6 +98,10 @@ CommonExceptionHandlerWorker (
     while (!AcquireSpinLockOrFail (&ExceptionHandlerData->DisplayMessageSpinLock)) {
       CpuPause ();
     }
+    //
+    // Initialize the serial port before dumping.
+    //
+    SerialPortInitialize ();
     //
     // Display ExceptionType, CPU information and Image information
     //
@@ -234,11 +238,11 @@ InitializeCpuExceptionHandlersWorker (
   }
 
   IdtTable = (IA32_IDT_GATE_DESCRIPTOR *) IdtDescriptor.Base;
-  AsmGetTemplateAddressMap (&TemplateMap);
+  AsmGetTemplateAddressMap (&TemplateMap); //c: Assembly code will allocate a memory structure of type EXCEPTION_HANDLER_TEMPLATE_MAP, and return it in TemplateMap. NOTE this is the exception handler STUB table. Not the final IDT table. ref: X64/ExceptionHandlerAsm.asm
   ASSERT (TemplateMap.ExceptionStubHeaderSize <= HOOKAFTER_STUB_SIZE);
 
   ExceptionHandlerData->IdtEntryCount = IdtEntryCount;
-  UpdateIdtTable (IdtTable, &TemplateMap, ExceptionHandlerData);
+  UpdateIdtTable (IdtTable, &TemplateMap, ExceptionHandlerData);//c: Update the IDT based on the STUB table in TemplateMap. The STUB is not the final IDT talbe. It is used to set up the IDT table.
 
   return EFI_SUCCESS;
 }

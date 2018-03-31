@@ -119,7 +119,7 @@ IsBitMaskMatchCheck (
 **/
 VOID
 CheckCpuFeaturesDependency (
-  IN LIST_ENTRY              *FeatureList
+  IN LIST_ENTRY              *FeatureList //c: This is the HEAD node of the doubly-linked list.
   )
 {
   LIST_ENTRY                 *CurrentEntry;
@@ -129,8 +129,8 @@ CheckCpuFeaturesDependency (
   BOOLEAN                    Swapped;
   LIST_ENTRY                 *TempEntry;
 
-  CurrentEntry = GetFirstNode (FeatureList);
-  while (!IsNull (FeatureList, CurrentEntry)) {
+  CurrentEntry = GetFirstNode (FeatureList); //c: FeatureList is ordered by the CPU feature dependency relations.
+  while (!IsNull (FeatureList, CurrentEntry)) {//c: FeatureList is not empty, or the loop hasn't finished back to the HEAD node.
     Swapped = FALSE;
     CpuFeature = CPU_FEATURE_ENTRY_FROM_LINK (CurrentEntry);
     if (CpuFeature->BeforeAll) {
@@ -138,15 +138,15 @@ CheckCpuFeaturesDependency (
       // Check all features dispatched before this entry
       //
       CheckEntry = GetFirstNode (FeatureList);
-      while (CheckEntry != CurrentEntry) {
+      while (CheckEntry != CurrentEntry) { //c: Traverse all the feature entries that BEFORE CurrentEntry to ensure CurrentEntry's BeforeAll requirement is satisfied.
         CheckFeature = CPU_FEATURE_ENTRY_FROM_LINK (CheckEntry);
-        if (!CheckFeature->BeforeAll) {
+        if (!CheckFeature->BeforeAll) { //c: There's no precedence relation among BEFORE_ALL features.
           //
           // If this feature has no BeforeAll flag and is dispatched before CpuFeature,
           // insert currentEntry before Checked feature
           //
           RemoveEntryList (CurrentEntry);
-          InsertTailList (CheckEntry, CurrentEntry);
+          InsertTailList (CheckEntry, CurrentEntry); //c: Move CurrentEntry BEFORE the CheckEntry.
           Swapped = TRUE;
           break;
         }
@@ -162,16 +162,16 @@ CheckCpuFeaturesDependency (
       // Check all features dispatched after this entry
       //
       CheckEntry = GetNextNode (FeatureList, CurrentEntry);
-      while (!IsNull (FeatureList, CheckEntry)) {
+      while (!IsNull (FeatureList, CheckEntry)) { //c: Traverse all the feature entries that AFTER CurrentEntry to ensure CurrentEntry's AfterAll requirement is satisfied.
         CheckFeature = CPU_FEATURE_ENTRY_FROM_LINK (CheckEntry);
         if (!CheckFeature->AfterAll) {
           //
           // If this feature has no AfterAll flag and is dispatched after CpuFeature,
           // insert currentEntry after Checked feature
           //
-          TempEntry = GetNextNode (FeatureList, CurrentEntry);
+          TempEntry = GetNextNode (FeatureList, CurrentEntry); //c: There may be another AfterALL node after Current Entry, so should only go to ONE node further after CurrentEntry. E.g. H-()-(AA1)-()-(AA2)-()...
           RemoveEntryList (CurrentEntry);
-          InsertHeadList (CheckEntry, CurrentEntry);
+          InsertHeadList (CheckEntry, CurrentEntry);//c: Move CurrentEntry AFTER the CheckEntry.
           CurrentEntry = TempEntry;
           Swapped = TRUE;
           break;
@@ -183,7 +183,7 @@ CheckCpuFeaturesDependency (
       }
     }
 
-    if (CpuFeature->BeforeFeatureBitMask != NULL) {
+    if (CpuFeature->BeforeFeatureBitMask != NULL) {//c: If reach here, all the BeforeAll features and AfterAll features must have been placed to the beginning/ending positions of the FeatureList, respectively.
       //
       // Check all features dispatched before this entry
       //
@@ -292,7 +292,7 @@ RegisterCpuFeatureWorker (
     InsertTailList (&CpuFeaturesData->FeatureList, &CpuFeature->Link);
     CpuFeaturesData->FeaturesCount++;
   } else {
-    DEBUG ((DEBUG_INFO, "[OVERRIDE] "));
+    DEBUG ((DEBUG_INFO, "[OVERRIDE] ")); //c: Only the non-NULL value will override.
     DumpCpuFeature (CpuFeature);
     ASSERT (CpuFeatureEntry != NULL);
     //
@@ -331,13 +331,13 @@ RegisterCpuFeatureWorker (
     CpuFeatureEntry->BeforeAll = CpuFeature->BeforeAll;
     CpuFeatureEntry->AfterAll  = CpuFeature->AfterAll;
 
-    FreePool (CpuFeature->FeatureMask);
+    FreePool (CpuFeature->FeatureMask); //c: All the CpuFeature's useful data have been duplicated into the CpuFeatureEntry. So we can safely free the CpuFeature.
     FreePool (CpuFeature);
   }
   //
   // Verify CPU features dependency can change CPU feature order
   //
-  CheckCpuFeaturesDependency (&CpuFeaturesData->FeatureList);
+  CheckCpuFeaturesDependency (&CpuFeaturesData->FeatureList); //c: Each time a new CPU feature is registered, the FeatureList is sorted by feature dependencies.
   return RETURN_SUCCESS;
 }
 
@@ -434,7 +434,7 @@ RegisterCpuFeature (
   BOOLEAN                    BeforeAll;
   BOOLEAN                    AfterAll;
 
-  FeatureMask          = NULL;
+  FeatureMask          = NULL;//c: For each feature, these 5 pieces of data describe its full dependency info.
   BeforeFeatureBitMask = NULL;
   AfterFeatureBitMask  = NULL;
   BeforeAll            = FALSE;
@@ -445,26 +445,26 @@ RegisterCpuFeature (
   VA_START (Marker, InitializeFunc);
   Feature = VA_ARG (Marker, UINT32);
   while (Feature != CPU_FEATURE_END) {
-    ASSERT ((Feature & (CPU_FEATURE_BEFORE | CPU_FEATURE_AFTER))
+    ASSERT ((Feature & (CPU_FEATURE_BEFORE | CPU_FEATURE_AFTER)) //c: A Feature flag must not have BEFORE and AFTER at the same time.
                     != (CPU_FEATURE_BEFORE | CPU_FEATURE_AFTER));
-    ASSERT ((Feature & (CPU_FEATURE_BEFORE_ALL | CPU_FEATURE_AFTER_ALL))
+    ASSERT ((Feature & (CPU_FEATURE_BEFORE_ALL | CPU_FEATURE_AFTER_ALL)) //c: A Feature flag must not have BEFORE_ALL and AFTER_ALL at the same time.
                     != (CPU_FEATURE_BEFORE_ALL | CPU_FEATURE_AFTER_ALL));
-    if (Feature < CPU_FEATURE_BEFORE) {
-      BeforeAll = ((Feature & CPU_FEATURE_BEFORE_ALL) != 0) ? TRUE : FALSE;
+    if (Feature < CPU_FEATURE_BEFORE) { //c: Simple feature bit position number with Before/After All flags are meant for FeatureMask or not.
+      BeforeAll = ((Feature & CPU_FEATURE_BEFORE_ALL) != 0) ? TRUE : FALSE; //c: Collect BeforeAll, AfterAll flags.
       AfterAll  = ((Feature & CPU_FEATURE_AFTER_ALL) != 0) ? TRUE : FALSE;
-      Feature  &= ~(CPU_FEATURE_BEFORE_ALL | CPU_FEATURE_AFTER_ALL);
-      ASSERT (FeatureMask == NULL);
+      Feature  &= ~(CPU_FEATURE_BEFORE_ALL | CPU_FEATURE_AFTER_ALL); //c: Collect the pure Feature bit position number.
+      ASSERT (FeatureMask == NULL);//c: This will fail if user reigseter more than 1 features with a single call.
       SetCpuFeaturesBitMask (&FeatureMask, Feature, BitMaskSize);
     } else if ((Feature & CPU_FEATURE_BEFORE) != 0) {
-      SetCpuFeaturesBitMask (&BeforeFeatureBitMask, Feature & ~CPU_FEATURE_BEFORE, BitMaskSize);
+      SetCpuFeaturesBitMask (&BeforeFeatureBitMask, Feature & ~CPU_FEATURE_BEFORE, BitMaskSize); //c: Collect before which features.
     } else if ((Feature & CPU_FEATURE_AFTER) != 0) {
-      SetCpuFeaturesBitMask (&AfterFeatureBitMask, Feature & ~CPU_FEATURE_AFTER, BitMaskSize);
+      SetCpuFeaturesBitMask (&AfterFeatureBitMask, Feature & ~CPU_FEATURE_AFTER, BitMaskSize); //c: Collect after which features.
     }
     Feature = VA_ARG (Marker, UINT32);
   }
   VA_END (Marker);
 
-  CpuFeature = AllocateZeroPool (sizeof (CPU_FEATURES_ENTRY));
+  CpuFeature = AllocateZeroPool (sizeof (CPU_FEATURES_ENTRY)); //c: Construct a new CPU_FEATURES_ENTRY.
   ASSERT (CpuFeature != NULL);
   CpuFeature->Signature            = CPU_FEATURE_ENTRY_SIGNATURE;
   CpuFeature->FeatureMask          = FeatureMask;
@@ -482,7 +482,7 @@ RegisterCpuFeature (
     ASSERT_EFI_ERROR (Status);
   }
 
-  Status = RegisterCpuFeatureWorker (CpuFeature);
+  Status = RegisterCpuFeatureWorker (CpuFeature); //c: Register the new CPU_FEATURES_ENTRY into the mCpuFeaturesData DB.
   ASSERT_EFI_ERROR (Status);
 
   return RETURN_SUCCESS;
@@ -543,7 +543,7 @@ CpuRegisterTableWriteWorker (
     RegisterTable = &CpuFeaturesData->RegisterTable[ProcessorNumber];
   }
 
-  if (RegisterTable->TableLength == RegisterTable->AllocatedSize / sizeof (CPU_REGISTER_TABLE_ENTRY)) {
+  if (RegisterTable->TableLength == RegisterTable->AllocatedSize / sizeof (CPU_REGISTER_TABLE_ENTRY)) {//c: Check if current TableLength reach the buffer size limit. If so, enlarge the table.
     EnlargeRegisterTable (RegisterTable);
   }
 
@@ -647,7 +647,7 @@ IsCpuFeatureSetInCpuPcd (
   IN UINT32              Feature
   )
 {
-  if ((Feature >> 3) >= CpuBitMaskSize) {
+  if ((Feature >> 3) >= CpuBitMaskSize) { //c: the Feature bit position is beyond the valid bit mask bit width.
     return FALSE;
   }
   return ((*(CpuBitMask + (Feature >> 3)) & (1 << (Feature & 0x07))) != 0);

@@ -897,7 +897,7 @@ InitSmmProfileInternal (
   // The base address
   //
   mSmmProfileSize = PcdGet32 (PcdCpuSmmProfileSize);
-  ASSERT ((mSmmProfileSize & 0xFFF) == 0);
+  ASSERT ((mSmmProfileSize & 0xFFF) == 0);//c: Must be a multiple of 4KB.
 
   if (mBtsSupported) {
     TotalSize = mSmmProfileSize + mMsrDsAreaSize;
@@ -924,8 +924,8 @@ InitSmmProfileInternal (
   mSmmProfileBase->MaxDataSize    = MultU64x64 (mSmmProfileBase->MaxDataEntries, sizeof(SMM_PROFILE_ENTRY));
   mSmmProfileBase->CurDataEntries = 0;
   mSmmProfileBase->CurDataSize    = 0;
-  mSmmProfileBase->TsegStart      = mCpuHotPlugData.SmrrBase;
-  mSmmProfileBase->TsegSize       = mCpuHotPlugData.SmrrSize;
+  mSmmProfileBase->TsegStart      = mCpuHotPlugData.SmrrBase; //c: Tseg: Top memory for SMM: TSEG (Top Segment) SMRAM. ref: https://firmware.intel.com/sites/default/files/resources/A_Tour_Beyond_BIOS_Memory_Map_in%20UEFI_BIOS.pdf
+  mSmmProfileBase->TsegSize       = mCpuHotPlugData.SmrrSize; //c: If Tseg is enabled, this DRAM can be access if and only if CPU in SMM mode.
   mSmmProfileBase->NumSmis        = 0;
   mSmmProfileBase->NumCpus        = gSmmCpuPrivate->SmmCoreEntryContext.NumberOfCpus;
 
@@ -1302,6 +1302,8 @@ SmmProfilePFHandler (
 {
   UINT64                *PageTable;
   UINT64                PFAddress;
+  UINT64                RestoreAddress;
+  UINTN                 RestorePageNumber;
   UINTN                 CpuIndex;
   UINTN                 Index;
   UINT64                InstructionAddress;
@@ -1331,10 +1333,21 @@ SmmProfilePFHandler (
   PFAddress         = AsmReadCr2 ();
   CpuIndex          = GetCpuIndex ();
 
-  if (PFAddress <= 0xFFFFFFFF) {
-    RestorePageTableBelow4G (PageTable, PFAddress, CpuIndex, ErrorCode);
-  } else {
-    RestorePageTableAbove4G (PageTable, PFAddress, CpuIndex, ErrorCode, &IsValidPFAddress);
+  //
+  // Memory operation cross pages, like "rep mov" instruction, will cause
+  // infinite loop between this and Debug Trap handler. We have to make sure
+  // that current page and the page followed are both in PRESENT state.
+  //
+  RestorePageNumber = 2;
+  RestoreAddress = PFAddress;
+  while (RestorePageNumber > 0) {
+    if (RestoreAddress <= 0xFFFFFFFF) {
+      RestorePageTableBelow4G (PageTable, RestoreAddress, CpuIndex, ErrorCode);
+    } else {
+      RestorePageTableAbove4G (PageTable, RestoreAddress, CpuIndex, ErrorCode, &IsValidPFAddress);
+    }
+    RestoreAddress += EFI_PAGE_SIZE;
+    RestorePageNumber--;
   }
 
   if (!IsValidPFAddress) {
@@ -1372,7 +1385,7 @@ SmmProfilePFHandler (
       }
     }
 
-    SmmProfileEntry = (SMM_PROFILE_ENTRY *)(UINTN)(mSmmProfileBase + 1);
+    SmmProfileEntry = (SMM_PROFILE_ENTRY *)(UINTN)(mSmmProfileBase + 1);//c: +1 to skip the table header.
     //
     // Check if there is already a same entry in profile data.
     //
@@ -1426,7 +1439,7 @@ SmmProfilePFHandler (
 /**
   Replace INT1 exception handler to restore page table to absent/execute-disable state
   in order to trigger page fault again to save SMM profile data..
-
+  //c: so we should check the page fault handler for the actual SMM porofile logging logic. It should contain the mSmmProfileStart enable flag also.
 **/
 VOID
 InitIdtr (

@@ -73,7 +73,7 @@
 #define CPU_FEATURE_PPIN                            (32+11)
 #define CPU_FEATURE_PROC_TRACE                      (32+12)
 
-#define CPU_FEATURE_BEFORE_ALL                      BIT27
+#define CPU_FEATURE_BEFORE_ALL                      BIT27 //c: this and below defs are BIT FLAGS, while the above are BIT POSITION NUMBERS. They are different!.
 #define CPU_FEATURE_AFTER_ALL                       BIT28
 #define CPU_FEATURE_BEFORE                          BIT29
 #define CPU_FEATURE_AFTER                           BIT30

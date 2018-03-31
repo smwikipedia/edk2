@@ -1460,7 +1460,7 @@ InitializeMpServiceData (
 
 /**
 
-  Register the SMM Foundation entry point.
+  Register the SMM Foundation entry point.//c: SMM Foudnation is the PiSmmCore.inf
 
   @param          This              Pointer to EFI_SMM_CONFIGURATION_PROTOCOL instance
   @param          SmmEntryPoint     SMM Foundation EntryPoint
@@ -1476,7 +1476,7 @@ RegisterSmmEntry (
   )
 {
   //
-  // Record SMM Foundation EntryPoint, later invoke it on SMI entry vector.
+  // Record SMM Foundation EntryPoint, later invoke it on SMI entry vector. //c: SMI entry vector is the SMBASE + 8000H? The invoking is at line 480 in this file.
   //
   gSmmCpuPrivate->SmmCoreEntry = SmmEntryPoint;
   return EFI_SUCCESS;

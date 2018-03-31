@@ -96,7 +96,7 @@ GetSmiHandlerProfileDatabase(
     return ;
   }
   ASSERT(PiSmmCommunicationRegionTable != NULL);
-  Entry = (EFI_MEMORY_DESCRIPTOR *)(PiSmmCommunicationRegionTable + 1);
+  Entry = (EFI_MEMORY_DESCRIPTOR *)(PiSmmCommunicationRegionTable + 1);//c: Skip the table header and get to the table content.
   Size = 0;
   for (Index = 0; Index < PiSmmCommunicationRegionTable->NumberOfEntries; Index++) {
     if (Entry->Type == EfiConventionalMemory) {

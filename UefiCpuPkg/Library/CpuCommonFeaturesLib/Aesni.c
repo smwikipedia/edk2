@@ -62,6 +62,7 @@ AesniSupport (
 {
   MSR_SANDY_BRIDGE_FEATURE_CONFIG_REGISTER   *MsrFeatureConfig;
 
+  if (CpuInfo->CpuIdVersionInfoEcx.Bits.AESNI == 1) {
   if (IS_SANDY_BRIDGE_PROCESSOR (CpuInfo->DisplayFamily, CpuInfo->DisplayModel) ||
       IS_SILVERMONT_PROCESSOR (CpuInfo->DisplayFamily, CpuInfo->DisplayModel) ||
       IS_XEON_5600_PROCESSOR (CpuInfo->DisplayFamily, CpuInfo->DisplayModel) ||
@@ -69,8 +70,9 @@ AesniSupport (
       IS_XEON_PHI_PROCESSOR (CpuInfo->DisplayFamily, CpuInfo->DisplayModel)) {
     MsrFeatureConfig = (MSR_SANDY_BRIDGE_FEATURE_CONFIG_REGISTER *) ConfigData;
     ASSERT (MsrFeatureConfig != NULL);
-    MsrFeatureConfig[ProcessorNumber].Uint64 = AsmReadMsr64 (MSR_SANDY_BRIDGE_FEATURE_CONFIG);
-    return (CpuInfo->CpuIdVersionInfoEcx.Bits.AESNI == 1);
+    MsrFeatureConfig[ProcessorNumber].Uint64 = AsmReadMsr64 (MSR_SANDY_BRIDGE_FEATURE_CONFIG); //c: Here the ConfigData get its content by reading the MSR.
+  }
+    return TRUE;
   }
   return FALSE;
 }
@@ -102,7 +104,7 @@ AesniInitialize (
   )
 {
   MSR_SANDY_BRIDGE_FEATURE_CONFIG_REGISTER   *MsrFeatureConfig;
-
+  
   //
   // SANDY_BRIDGE, SILVERMONT, XEON_5600, XEON_7, and XEON_PHI have the same MSR index,
   // Simply use MSR_SANDY_BRIDGE_FEATURE_CONFIG here
@@ -112,16 +114,16 @@ AesniInitialize (
   // programming it.
   //
   if (CpuInfo->ProcessorInfo.Location.Thread == 0) {
-    MsrFeatureConfig = (MSR_SANDY_BRIDGE_FEATURE_CONFIG_REGISTER *) ConfigData;
-    ASSERT (MsrFeatureConfig != NULL);
-    if ((MsrFeatureConfig[ProcessorNumber].Bits.AESConfiguration & BIT0) == 0) {
+    MsrFeatureConfig = (MSR_SANDY_BRIDGE_FEATURE_CONFIG_REGISTER *) ConfigData; //c: All MSR are 64-bit
+    ASSERT (MsrFeatureConfig != NULL); //c: ConfigData is allocated in the AesniGetConfigData() func in this file.
+    if ((MsrFeatureConfig[ProcessorNumber].Bits.AESConfiguration & BIT0) == 0) { //c: check the MSR value obtained by read MSR.
       CPU_REGISTER_TABLE_WRITE_FIELD (
-        ProcessorNumber,
-        Msr,
-        MSR_SANDY_BRIDGE_FEATURE_CONFIG,
-        MSR_SANDY_BRIDGE_FEATURE_CONFIG_REGISTER,
-        Bits.AESConfiguration,
-        BIT1 | ((State) ? 0 : BIT0)
+        ProcessorNumber, //c: which processor
+        Msr, //c: register type is Msr
+        MSR_SANDY_BRIDGE_FEATURE_CONFIG, //c: Msr index
+        MSR_SANDY_BRIDGE_FEATURE_CONFIG_REGISTER, //c: Struct holding the config value
+        Bits.AESConfiguration, //c: Struct field of the config value
+        BIT1 | ((State) ? 0 : BIT0)//c: Can write 10 or 11 depending on the State.
         );
     }
   }

@@ -41,12 +41,12 @@ typedef struct {
   LIST_ENTRY                   Link;
   UINT8                        *FeatureMask;
   CHAR8                        *FeatureName;
-  CPU_FEATURE_GET_CONFIG_DATA  GetConfigDataFunc;
+  CPU_FEATURE_GET_CONFIG_DATA  GetConfigDataFunc; //c: Prepare a buffer to hold config data for each and every cpu regarding current feature.
   CPU_FEATURE_SUPPORT          SupportFunc;
   CPU_FEATURE_INITIALIZE       InitializeFunc;
   UINT8                        *BeforeFeatureBitMask;
   UINT8                        *AfterFeatureBitMask;
-  VOID                         *ConfigData;
+  VOID                         *ConfigData; //c: Buffer to hold config data for each and every cpu regarding current feature 
   BOOLEAN                      BeforeAll;
   BOOLEAN                      AfterAll;
 } CPU_FEATURES_ENTRY;
@@ -56,13 +56,13 @@ typedef struct {
   UINT32                   BitMaskSize;
   SPIN_LOCK                MsrLock;
   SPIN_LOCK                MemoryMappedLock;
-  LIST_ENTRY               FeatureList;
+  LIST_ENTRY               FeatureList; //c: All registered candidate CPU features which is ordered with the CPU feature dependency relations.
 
   CPU_FEATURES_INIT_ORDER  *InitOrder;
-  UINT8                    *SupportPcds;
-  UINT8                    *CapabilityPcds;
-  UINT8                    *ConfigurationPcds;
-  UINT8                    *SettingPcds;
+  UINT8                    *SupportPcd;
+  UINT8                    *CapabilityPcd;
+  UINT8                    *ConfigurationPcd;
+  UINT8                    *SettingPcd;
 
   CPU_REGISTER_TABLE       *RegisterTable;
   CPU_REGISTER_TABLE       *PreSmmRegisterTable;
