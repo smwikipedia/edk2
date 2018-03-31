@@ -62,6 +62,7 @@ AesniSupport (
 {
   MSR_SANDY_BRIDGE_FEATURE_CONFIG_REGISTER   *MsrFeatureConfig;
 
+  if (CpuInfo->CpuIdVersionInfoEcx.Bits.AESNI == 1) {
   if (IS_SANDY_BRIDGE_PROCESSOR (CpuInfo->DisplayFamily, CpuInfo->DisplayModel) ||
       IS_SILVERMONT_PROCESSOR (CpuInfo->DisplayFamily, CpuInfo->DisplayModel) ||
       IS_XEON_5600_PROCESSOR (CpuInfo->DisplayFamily, CpuInfo->DisplayModel) ||
@@ -70,7 +71,8 @@ AesniSupport (
     MsrFeatureConfig = (MSR_SANDY_BRIDGE_FEATURE_CONFIG_REGISTER *) ConfigData;
     ASSERT (MsrFeatureConfig != NULL);
     MsrFeatureConfig[ProcessorNumber].Uint64 = AsmReadMsr64 (MSR_SANDY_BRIDGE_FEATURE_CONFIG); //c: Here the ConfigData get its content by reading the MSR.
-    return (CpuInfo->CpuIdVersionInfoEcx.Bits.AESNI == 1); //c: Shoulnd't we only read the MSR iff the processor supports AESNI? And read the proper MSR according to the cpu model?
+  }
+    return TRUE;
   }
   return FALSE;
 }

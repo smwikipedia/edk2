@@ -16,6 +16,7 @@
 #include "CpuExceptionCommon.h"
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/UefiBootServicesTableLib.h>
 
 CONST UINTN    mDoFarReturnFlag  = 0;
 
@@ -106,8 +107,12 @@ InitializeCpuInterruptHandlers (
   RESERVED_VECTORS_DATA              *ReservedVectors;
   EFI_CPU_INTERRUPT_HANDLER          *ExternalInterruptHandler;
 
-  ReservedVectors = AllocatePool (sizeof (RESERVED_VECTORS_DATA) * CPU_INTERRUPT_NUM);
-  ASSERT (ReservedVectors != NULL);
+  Status = gBS->AllocatePool (
+                  EfiBootServicesCode,
+                  sizeof (RESERVED_VECTORS_DATA) * CPU_INTERRUPT_NUM,
+                  (VOID **)&ReservedVectors
+                  );
+  ASSERT (!EFI_ERROR (Status) && ReservedVectors != NULL);
   SetMem ((VOID *) ReservedVectors, sizeof (RESERVED_VECTORS_DATA) * CPU_INTERRUPT_NUM, 0xff);
   if (VectorInfo != NULL) {
     Status = ReadAndVerifyVectorInfo (VectorInfo, ReservedVectors, CPU_INTERRUPT_NUM);
@@ -137,8 +142,13 @@ InitializeCpuInterruptHandlers (
 
   AsmGetTemplateAddressMap (&TemplateMap);
   ASSERT (TemplateMap.ExceptionStubHeaderSize <= HOOKAFTER_STUB_SIZE);
-  InterruptEntryCode = AllocatePool (TemplateMap.ExceptionStubHeaderSize * CPU_INTERRUPT_NUM);
-  ASSERT (InterruptEntryCode != NULL);
+
+  Status = gBS->AllocatePool (
+                  EfiBootServicesCode,
+                  TemplateMap.ExceptionStubHeaderSize * CPU_INTERRUPT_NUM,
+                  (VOID **)&InterruptEntryCode
+                  );
+  ASSERT (!EFI_ERROR (Status) && InterruptEntryCode != NULL);
 
   InterruptEntry = (UINTN) InterruptEntryCode;
   for (Index = 0; Index < CPU_INTERRUPT_NUM; Index ++) {
@@ -260,7 +270,7 @@ InitializeCpuExceptionHandlersEx (
         AsmReadGdtr (&Gdtr);
 
         EssData.X64.Revision = CPU_EXCEPTION_INIT_DATA_REV;
-        EssData.X64.KnownGoodStackTop = (UINTN)mNewStack;
+        EssData.X64.KnownGoodStackTop = (UINTN)mNewStack + sizeof (mNewStack);
         EssData.X64.KnownGoodStackSize = CPU_KNOWN_GOOD_STACK_SIZE;
         EssData.X64.StackSwitchExceptions = CPU_STACK_SWITCH_EXCEPTION_LIST;
         EssData.X64.StackSwitchExceptionNumber = CPU_STACK_SWITCH_EXCEPTION_NUMBER;
