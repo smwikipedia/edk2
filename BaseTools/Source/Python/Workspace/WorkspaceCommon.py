@@ -11,11 +11,16 @@
 # WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 
-from Common.Misc import sdict
+from collections import OrderedDict, defaultdict
 from Common.DataType import SUP_MODULE_USER_DEFINED
 from BuildClassObject import LibraryClassObject
 import Common.GlobalData as GlobalData
 from Workspace.BuildClassObject import StructurePcd
+
+class OrderedListDict(OrderedDict, defaultdict):
+    def __init__(self, *args, **kwargs):
+        super(OrderedListDict, self).__init__(*args, **kwargs)
+        self.default_factory = list
 
 ## Get all packages from platform for specified arch, target and toolchain
 #
@@ -106,8 +111,8 @@ def _GetModuleLibraryInstances(Module, Platform, BuildDatabase, Arch, Target, To
     # EdkII module
     LibraryConsumerList = [Module]
     Constructor = []
-    ConsumedByList = sdict()
-    LibraryInstance = sdict()
+    ConsumedByList = OrderedListDict()
+    LibraryInstance = OrderedDict()
 
     while len(LibraryConsumerList) > 0:
         M = LibraryConsumerList.pop()
@@ -145,8 +150,6 @@ def _GetModuleLibraryInstances(Module, Platform, BuildDatabase, Arch, Target, To
             if LibraryModule.ConstructorList != [] and LibraryModule not in Constructor:
                 Constructor.append(LibraryModule)
 
-            if LibraryModule not in ConsumedByList:
-                ConsumedByList[LibraryModule] = []
             # don't add current module itself to consumer list
             if M != Module:
                 if M in ConsumedByList[LibraryModule]:
@@ -164,7 +167,7 @@ def _GetModuleLibraryInstances(Module, Platform, BuildDatabase, Arch, Target, To
     for LibraryClassName in LibraryInstance:
         M = LibraryInstance[LibraryClassName]
         LibraryList.append(M)
-        if ConsumedByList[M] == []:
+        if len(ConsumedByList[M]) == 0:
             Q.append(M)
 
     #
@@ -185,7 +188,7 @@ def _GetModuleLibraryInstances(Module, Platform, BuildDatabase, Arch, Target, To
                     # remove edge e from the graph if Node has no constructor
                     ConsumedByList[Item].remove(Node)
                     EdgeRemoved = True
-                    if ConsumedByList[Item] == []:
+                    if len(ConsumedByList[Item]) == 0:
                         # insert Item into Q
                         Q.insert(0, Item)
                         break
@@ -207,7 +210,7 @@ def _GetModuleLibraryInstances(Module, Platform, BuildDatabase, Arch, Target, To
             # remove edge e from the graph
             ConsumedByList[Item].remove(Node)
 
-            if ConsumedByList[Item] != []:
+            if len(ConsumedByList[Item]) != 0:
                 continue
             # insert Item into Q, if Item has no other incoming edges
             Q.insert(0, Item)
@@ -216,7 +219,7 @@ def _GetModuleLibraryInstances(Module, Platform, BuildDatabase, Arch, Target, To
     # if any remaining node Item in the graph has a constructor and an incoming edge, then the graph has a cycle
     #
     for Item in LibraryList:
-        if ConsumedByList[Item] != [] and Item in Constructor and len(Constructor) > 1:
+        if len(ConsumedByList[Item]) != 0 and Item in Constructor and len(Constructor) > 1:
             return []
         if Item not in SortedLibraryList:
             SortedLibraryList.append(Item)

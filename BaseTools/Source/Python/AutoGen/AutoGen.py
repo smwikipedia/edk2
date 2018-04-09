@@ -45,9 +45,20 @@ import InfSectionParser
 import datetime
 import hashlib
 from GenVar import VariableMgr,var_info
+from collections import OrderedDict
 
 ## Regular expression for splitting Dependency Expression string into tokens
 gDepexTokenPattern = re.compile("(\(|\)|\w+| \S+\.inf)")
+
+## Regular expression for match: PCD(xxxx.yyy)
+gPCDAsGuidPattern = re.compile(r"^PCD\(.+\..+\)$")
+
+#
+# Regular expression for finding Include Directories, the difference between MSFT and INTEL/GCC/RVCT
+# is the former use /I , the Latter used -I to specify include directories
+#
+gBuildOptIncludePatternMsft = re.compile(r"(?:.*?)/I[ \t]*([^ ]*)", re.MULTILINE | re.DOTALL)
+gBuildOptIncludePatternOther = re.compile(r"(?:.*?)-I[ \t]*([^ ]*)", re.MULTILINE | re.DOTALL)
 
 #
 # Match name = variable
@@ -399,13 +410,8 @@ class WorkspaceAutoGen(AutoGen):
         for Arch in self.ArchList:
             Platform = self.BuildDatabase[self.MetaFile, Arch, Target, Toolchain]
 
-
-
-
-
-
-            SourcePcdDict = {'DynamicEx':[], 'PatchableInModule':[],'Dynamic':[],'FixedAtBuild':[]}
-            BinaryPcdDict = {'DynamicEx':[], 'PatchableInModule':[]}
+            SourcePcdDict = {'DynamicEx':set(), 'PatchableInModule':set(),'Dynamic':set(),'FixedAtBuild':set()}
+            BinaryPcdDict = {'DynamicEx':set(), 'PatchableInModule':set()}
             SourcePcdDict_Keys = SourcePcdDict.keys()
             BinaryPcdDict_Keys = BinaryPcdDict.keys()
 
@@ -431,27 +437,21 @@ class WorkspaceAutoGen(AutoGen):
 
                         if 'DynamicEx' in BuildData.Pcds[key].Type:
                             if BuildData.IsBinaryModule:
-                                if (BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName) not in BinaryPcdDict['DynamicEx']:
-                                    BinaryPcdDict['DynamicEx'].append((BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName))
+                                BinaryPcdDict['DynamicEx'].add((BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName))
                             else:
-                                if (BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName) not in SourcePcdDict['DynamicEx']:
-                                    SourcePcdDict['DynamicEx'].append((BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName))
+                                SourcePcdDict['DynamicEx'].add((BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName))
 
                         elif 'PatchableInModule' in BuildData.Pcds[key].Type:
                             if BuildData.MetaFile.Ext == '.inf':
                                 if BuildData.IsBinaryModule:
-                                    if (BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName) not in BinaryPcdDict['PatchableInModule']:
-                                        BinaryPcdDict['PatchableInModule'].append((BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName))
+                                    BinaryPcdDict['PatchableInModule'].add((BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName))
                                 else:
-                                    if (BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName) not in SourcePcdDict['PatchableInModule']:
-                                        SourcePcdDict['PatchableInModule'].append((BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName))
+                                    SourcePcdDict['PatchableInModule'].add((BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName))
 
                         elif 'Dynamic' in BuildData.Pcds[key].Type:
-                            if (BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName) not in SourcePcdDict['Dynamic']:
-                                SourcePcdDict['Dynamic'].append((BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName))
+                            SourcePcdDict['Dynamic'].add((BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName))
                         elif 'FixedAtBuild' in BuildData.Pcds[key].Type:
-                            if (BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName) not in SourcePcdDict['FixedAtBuild']:
-                                SourcePcdDict['FixedAtBuild'].append((BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName))
+                            SourcePcdDict['FixedAtBuild'].add((BuildData.Pcds[key].TokenCName, BuildData.Pcds[key].TokenSpaceGuidCName))
                 else:
                     pass
             #
@@ -460,16 +460,14 @@ class WorkspaceAutoGen(AutoGen):
             for i in SourcePcdDict_Keys:
                 for j in SourcePcdDict_Keys:
                     if i != j:
-                        IntersectionList = list(set(SourcePcdDict[i]).intersection(set(SourcePcdDict[j])))
-                        if len(IntersectionList) > 0:
+                        Intersections = SourcePcdDict[i].intersection(SourcePcdDict[j])
+                        if len(Intersections) > 0:
                             EdkLogger.error(
                             'build',
                             FORMAT_INVALID,
                             "Building modules from source INFs, following PCD use %s and %s access method. It must be corrected to use only one access method." % (i, j),
-                            ExtraData="%s" % '\n\t'.join([str(P[1]+'.'+P[0]) for P in IntersectionList])
+                            ExtraData="%s" % '\n\t'.join([str(P[1]+'.'+P[0]) for P in Intersections])
                             )
-                    else:
-                        pass
 
             #
             # intersection the BinaryPCD for Mixed PCD
@@ -477,8 +475,8 @@ class WorkspaceAutoGen(AutoGen):
             for i in BinaryPcdDict_Keys:
                 for j in BinaryPcdDict_Keys:
                     if i != j:
-                        IntersectionList = list(set(BinaryPcdDict[i]).intersection(set(BinaryPcdDict[j])))
-                        for item in IntersectionList:
+                        Intersections = BinaryPcdDict[i].intersection(BinaryPcdDict[j])
+                        for item in Intersections:
                             NewPcd1 = (item[0] + '_' + i, item[1])
                             NewPcd2 = (item[0] + '_' + j, item[1])
                             if item not in GlobalData.MixedPcd:
@@ -488,8 +486,6 @@ class WorkspaceAutoGen(AutoGen):
                                     GlobalData.MixedPcd[item].append(NewPcd1)
                                 if NewPcd2 not in GlobalData.MixedPcd[item]:
                                     GlobalData.MixedPcd[item].append(NewPcd2)
-                    else:
-                        pass
 
             #
             # intersection the SourcePCD and BinaryPCD for Mixed PCD
@@ -497,8 +493,8 @@ class WorkspaceAutoGen(AutoGen):
             for i in SourcePcdDict_Keys:
                 for j in BinaryPcdDict_Keys:
                     if i != j:
-                        IntersectionList = list(set(SourcePcdDict[i]).intersection(set(BinaryPcdDict[j])))
-                        for item in IntersectionList:
+                        Intersections = SourcePcdDict[i].intersection(BinaryPcdDict[j])
+                        for item in Intersections:
                             NewPcd1 = (item[0] + '_' + i, item[1])
                             NewPcd2 = (item[0] + '_' + j, item[1])
                             if item not in GlobalData.MixedPcd:
@@ -508,8 +504,6 @@ class WorkspaceAutoGen(AutoGen):
                                     GlobalData.MixedPcd[item].append(NewPcd1)
                                 if NewPcd2 not in GlobalData.MixedPcd[item]:
                                     GlobalData.MixedPcd[item].append(NewPcd2)
-                    else:
-                        pass
 
             for BuildData in PGen.BuildDatabase._CACHE_.values():
                 if BuildData.Arch != Arch:
@@ -530,11 +524,7 @@ class WorkspaceAutoGen(AutoGen):
                                     del BuildData.Pcds[key]
                                     BuildData.Pcds[newkey] = Value
                                     break
-                                else:
-                                    pass
                             break
-                        else:
-                            pass
 
             # handle the mixed pcd in FDF file
             for key in PcdSet:
@@ -818,13 +808,11 @@ class WorkspaceAutoGen(AutoGen):
                         InfFoundFlag = False
 
                 if FfsFile.NameGuid is not None:
-                    _CheckPCDAsGuidPattern = re.compile("^PCD\(.+\..+\)$")
-
                     #
                     # If the NameGuid reference a PCD name. 
                     # The style must match: PCD(xxxx.yyy)
                     #
-                    if _CheckPCDAsGuidPattern.match(FfsFile.NameGuid):
+                    if gPCDAsGuidPattern.match(FfsFile.NameGuid):
                         #
                         # Replace the PCD value.
                         #
@@ -892,7 +880,7 @@ class WorkspaceAutoGen(AutoGen):
         ]
 
         # This dict store PCDs which are not used by any modules with specified arches
-        UnusedPcd = sdict()
+        UnusedPcd = OrderedDict()
         for Pa in self.AutoGenObjectList:
             # Key of DSC's Pcds dictionary is PcdCName, TokenSpaceGuid
             for Pcd in Pa.Platform.Pcds:
@@ -2084,7 +2072,7 @@ class PlatformAutoGen(AutoGen):
     ## Generate Token Number for all PCD
     def _GetPcdTokenNumbers(self):
         if self._PcdTokenNumber is None:
-            self._PcdTokenNumber = sdict()
+            self._PcdTokenNumber = OrderedDict()
             TokenNumber = 1
             #
             # Make the Dynamic and DynamicEx PCD use within different TokenNumber area. 
@@ -2207,8 +2195,8 @@ class PlatformAutoGen(AutoGen):
         # EdkII module
         LibraryConsumerList = [Module]
         Constructor         = []
-        ConsumedByList      = sdict()
-        LibraryInstance     = sdict()
+        ConsumedByList      = OrderedDict()
+        LibraryInstance     = OrderedDict()
 
         EdkLogger.verbose("")
         EdkLogger.verbose("Library instances of module [%s] [%s]:" % (str(Module), self.Arch))
@@ -2880,14 +2868,14 @@ class ModuleAutoGen(AutoGen):
         self._DerivedPackageList      = None
         self._ModulePcdList           = None
         self._LibraryPcdList          = None
-        self._PcdComments = sdict()
+        self._PcdComments = OrderedDict()
         self._GuidList                = None
         self._GuidsUsedByPcd = None
-        self._GuidComments = sdict()
+        self._GuidComments = OrderedDict()
         self._ProtocolList            = None
-        self._ProtocolComments = sdict()
+        self._ProtocolComments = OrderedDict()
         self._PpiList                 = None
-        self._PpiComments = sdict()
+        self._PpiComments = OrderedDict()
         self._DepexList               = None
         self._DepexExpressionList     = None
         self._BuildOption             = None
@@ -2943,7 +2931,7 @@ class ModuleAutoGen(AutoGen):
     # Macros could be used in build_rule.txt (also Makefile)
     def _GetMacros(self):
         if self._Macro is None:
-            self._Macro = sdict()
+            self._Macro = OrderedDict()
             self._Macro["WORKSPACE"             ] = self.WorkspaceDir
             self._Macro["MODULE_NAME"           ] = self.Name
             self._Macro["MODULE_NAME_GUID"      ] = self._GetUniqueBaseName()
@@ -3315,9 +3303,9 @@ class ModuleAutoGen(AutoGen):
             # is the former use /I , the Latter used -I to specify include directories
             #
             if self.PlatformInfo.ToolChainFamily in ('MSFT'):
-                gBuildOptIncludePattern = re.compile(r"(?:.*?)/I[ \t]*([^ ]*)", re.MULTILINE | re.DOTALL)
+                BuildOptIncludeRegEx = gBuildOptIncludePatternMsft
             elif self.PlatformInfo.ToolChainFamily in ('INTEL', 'GCC', 'RVCT'):
-                gBuildOptIncludePattern = re.compile(r"(?:.*?)-I[ \t]*([^ ]*)", re.MULTILINE | re.DOTALL)
+                BuildOptIncludeRegEx = gBuildOptIncludePatternOther
             else:
                 #
                 # New ToolChainFamily, don't known whether there is option to specify include directories
@@ -3334,13 +3322,13 @@ class ModuleAutoGen(AutoGen):
                     FlagOption = ''
                 
                 if self.PlatformInfo.ToolChainFamily != 'RVCT':
-                    IncPathList = [NormPath(Path, self.Macros) for Path in gBuildOptIncludePattern.findall(FlagOption)]
+                    IncPathList = [NormPath(Path, self.Macros) for Path in BuildOptIncludeRegEx.findall(FlagOption)]
                 else:
                     #
                     # RVCT may specify a list of directory seperated by commas
                     #
                     IncPathList = []
-                    for Path in gBuildOptIncludePattern.findall(FlagOption):
+                    for Path in BuildOptIncludeRegEx.findall(FlagOption):
                         PathList = GetSplitList(Path, TAB_COMMA_SPLIT)
                         IncPathList += [NormPath(PathEntry, self.Macros) for PathEntry in PathList]
 
@@ -3695,7 +3683,7 @@ class ModuleAutoGen(AutoGen):
     #
     def _GetLibraryPcdList(self):
         if self._LibraryPcdList is None:
-            Pcds = sdict()
+            Pcds = OrderedDict()
             if not self.IsLibrary:
                 # get PCDs from dependent libraries
                 for Library in self.DependentLibraryList:
@@ -3717,7 +3705,7 @@ class ModuleAutoGen(AutoGen):
     #
     def _GetGuidList(self):
         if self._GuidList is None:
-            self._GuidList = sdict()
+            self._GuidList = OrderedDict()
             self._GuidList.update(self.Module.Guids)
             for Library in self.DependentLibraryList:
                 self._GuidList.update(Library.Guids)
@@ -3727,7 +3715,7 @@ class ModuleAutoGen(AutoGen):
 
     def GetGuidsUsedByPcd(self):
         if self._GuidsUsedByPcd is None:
-            self._GuidsUsedByPcd = sdict()
+            self._GuidsUsedByPcd = OrderedDict()
             self._GuidsUsedByPcd.update(self.Module.GetGuidsUsedByPcd())
             for Library in self.DependentLibraryList:
                 self._GuidsUsedByPcd.update(Library.GetGuidsUsedByPcd())
@@ -3738,7 +3726,7 @@ class ModuleAutoGen(AutoGen):
     #
     def _GetProtocolList(self):
         if self._ProtocolList is None:
-            self._ProtocolList = sdict()
+            self._ProtocolList = OrderedDict()
             self._ProtocolList.update(self.Module.Protocols)
             for Library in self.DependentLibraryList:
                 self._ProtocolList.update(Library.Protocols)
@@ -3752,7 +3740,7 @@ class ModuleAutoGen(AutoGen):
     #
     def _GetPpiList(self):
         if self._PpiList is None:
-            self._PpiList = sdict()
+            self._PpiList = OrderedDict()
             self._PpiList.update(self.Module.Ppis)
             for Library in self.DependentLibraryList:
                 self._PpiList.update(Library.Ppis)
@@ -3983,7 +3971,7 @@ class ModuleAutoGen(AutoGen):
                     PcdCheckList.append((Pcd.TokenCName, Pcd.TokenSpaceGuidCName, 'DynamicEx'))
                     PcdCheckList.append((Pcd.TokenCName, Pcd.TokenSpaceGuidCName, 'Dynamic'))
                     PcdTokenSpaceList.append(Pcd.TokenSpaceGuidCName)
-        GuidList = sdict()
+        GuidList = OrderedDict()
         GuidList.update(self.GuidList)
         for TokenSpace in self.GetGuidsUsedByPcd():
             # If token space is not referred by patch PCD or Ex PCD, remove the GUID from GUID list
