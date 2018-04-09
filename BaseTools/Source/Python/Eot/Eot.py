@@ -27,7 +27,6 @@ import Database
 from FvImage import *
 from array import array
 from Report import Report
-from Common.Misc import ParseConsoleLog
 from Common.BuildVersion import gBUILD_VERSION
 from Parser import ConvertGuid
 from Common.LongFilePathSupport import OpenLongFilePath as open
@@ -339,14 +338,6 @@ class Eot(object):
             GuidMacro = ''
             GuidMacro2 = ''
             GuidValue = ''
-
-            # Find value for hardcode guid macro
-            if GuidName in EotGlobalData.gGuidMacroDict:
-                GuidMacro = EotGlobalData.gGuidMacroDict[GuidName][0]
-                GuidValue = EotGlobalData.gGuidMacroDict[GuidName][1]
-                SqlCommand = """update Report set GuidMacro = '%s', GuidValue = '%s' where GuidName = '%s'""" %(GuidMacro, GuidValue, GuidName)
-                EotGlobalData.gDb.TblReport.Exec(SqlCommand)
-                continue
 
             # Find guid value defined in Dec file
             if GuidName in EotGlobalData.gGuidDict:

@@ -351,8 +351,8 @@ class UniFileClassObject(object):
         Name = Item.split()[1]
         # Check the string name
         if Name != '':
-            MatchString = re.match('^[a-zA-Z][a-zA-Z0-9_]*$', Name, re.UNICODE)
-            if MatchString is None or MatchString.end(0) != len(Name):
+            MatchString = gIdentifierPattern.match(Name)
+            if MatchString is None:
                 EdkLogger.error('Unicode File Parser', FORMAT_INVALID, 'The string token name %s defined in UNI file %s contains the invalid character.' % (Name, self.File))
         LanguageList = Item.split(u'#language ')
         for IndexI in range(len(LanguageList)):
@@ -521,8 +521,8 @@ class UniFileClassObject(object):
                 Language = GetLanguageCode(Language, self.IsCompatibleMode, self.File)
                 # Check the string name
                 if not self.IsCompatibleMode and Name != '':
-                    MatchString = re.match('^[a-zA-Z][a-zA-Z0-9_]*$', Name, re.UNICODE)
-                    if MatchString is None or MatchString.end(0) != len(Name):
+                    MatchString = gIdentifierPattern.match(Name)
+                    if MatchString is None:
                         EdkLogger.error('Unicode File Parser', FORMAT_INVALID, 'The string token name %s defined in UNI file %s contains the invalid character.' % (Name, self.File))
                 self.AddStringToList(Name, Language, Value)
                 continue

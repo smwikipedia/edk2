@@ -42,6 +42,7 @@ import ComponentStatement
 import OptionRom
 import OptRomInfStatement
 import OptRomFileStatement
+import string
 
 from GenFdsGlobalVariable import GenFdsGlobalVariable
 from Common.BuildToolError import *
@@ -60,7 +61,6 @@ from Common.LongFilePathSupport import OpenLongFilePath as open
 from Capsule import EFI_CERT_TYPE_PKCS7_GUID
 from Capsule import EFI_CERT_TYPE_RSA2048_SHA256_GUID
 from Common.RangeExpression import RangeExpression
-from Common.FdfParserLite import FileExtensionPattern
 
 ##define T_CHAR_SPACE                ' '
 ##define T_CHAR_NULL                 '\0'
@@ -84,6 +84,9 @@ RegionSizePattern = re.compile("\s*(?P<base>(?:0x|0X)?[a-fA-F0-9]+)\s*\|\s*(?P<s
 RegionSizeGuidPattern = re.compile("\s*(?P<base>\w+\.\w+)\s*\|\s*(?P<size>\w+\.\w+)\s*")
 RegionOffsetPcdPattern = re.compile("\s*(?P<base>\w+\.\w+)\s*$")
 ShortcutPcdPattern = re.compile("\s*\w+\s*=\s*(?P<value>(?:0x|0X)?[a-fA-F0-9]+)\s*\|\s*(?P<name>\w+\.\w+)\s*")
+BaseAddrValuePattern = re.compile('^0[xX][0-9a-fA-F]+')
+FileExtensionPattern = re.compile(r'([a-zA-Z][a-zA-Z0-9]*)')
+TokenFindPattern = re.compile(r'([a-zA-Z0-9\-]+|\$\(TARGET\)|\*)_([a-zA-Z0-9\-]+|\$\(TOOL_CHAIN_TAG\)|\*)_([a-zA-Z0-9\-]+|\$\(ARCH\)|\*)')
 
 AllIncludeFileList = []
 
@@ -273,21 +276,6 @@ class FdfParser:
         self.__WipeOffArea = []
         if GenFdsGlobalVariable.WorkSpaceDir == '':
             GenFdsGlobalVariable.WorkSpaceDir = os.getenv("WORKSPACE")
-
-    ## __IsWhiteSpace() method
-    #
-    #   Whether char at current FileBufferPos is whitespace
-    #
-    #   @param  self        The object pointer
-    #   @param  Char        The char to test
-    #   @retval True        The char is a kind of white space
-    #   @retval False       The char is NOT a kind of white space
-    #
-    def __IsWhiteSpace(self, Char):
-        if Char in (T_CHAR_NULL, T_CHAR_CR, T_CHAR_SPACE, T_CHAR_TAB, T_CHAR_LF):
-            return True
-        else:
-            return False
 
     ## __SkipWhiteSpace() method
     #
@@ -718,7 +706,8 @@ class FdfParser:
         # Preprocess done.
         self.Rewind()
         
-    def __GetIfListCurrentItemStat(self, IfList):
+    @staticmethod
+    def __GetIfListCurrentItemStat(IfList):
         if len(IfList) == 0:
             return True
         
@@ -1192,32 +1181,13 @@ class FdfParser:
 
         self.__GetOneChar()
 
-    ## __HexDigit() method
-    #
-    #   Whether char input is a Hex data bit
-    #
-    #   @param  self        The object pointer
-    #   @param  TempChar    The char to test
-    #   @retval True        The char is a Hex data bit
-    #   @retval False       The char is NOT a Hex data bit
-    #
-    def __HexDigit(self, TempChar):
-        if (TempChar >= 'a' and TempChar <= 'f') or (TempChar >= 'A' and TempChar <= 'F') \
-                or (TempChar >= '0' and TempChar <= '9'):
-                    return True
-        else:
-            return False
-
     def __IsHex(self, HexStr):
         if not HexStr.upper().startswith("0X"):
             return False
         if len(self.__Token) <= 2:
             return False
-        charList = [c for c in HexStr[2 : ] if not self.__HexDigit( c)]
-        if len(charList) == 0:
-            return True
-        else:
-            return False
+        return True if all(x in string.hexdigits for x in HexStr[2:]) else False
+
     ## __GetNextHexNumber() method
     #
     #   Get next HEX data before a seperator
@@ -2243,9 +2213,7 @@ class FdfParser:
         if not self.__GetNextToken():
             raise Warning("expected FV base address value", self.FileName, self.CurrentLineNumber)
 
-        IsValidBaseAddrValue = re.compile('^0[x|X][0-9a-fA-F]+')
-
-        if not IsValidBaseAddrValue.match(self.__Token.upper()):
+        if not BaseAddrValuePattern.match(self.__Token.upper()):
             raise Warning("Unknown FV base address value '%s'" % self.__Token, self.FileName, self.CurrentLineNumber)
         Obj.FvBaseAddress = self.__Token
         return True  
@@ -2658,13 +2626,12 @@ class FdfParser:
     #
     #   Check whether reloc strip flag can be set for a file type.
     #
-    #   @param  self        The object pointer
     #   @param  FileType    The file type to check with
     #   @retval True        This type could have relocation strip flag
     #   @retval False       No way to have it
     #
-
-    def __FileCouldHaveRelocFlag (self, FileType):
+    @staticmethod
+    def __FileCouldHaveRelocFlag (FileType):
         if FileType in ('SEC', 'PEI_CORE', 'PEIM', 'PEI_DXE_COMBO'):
             return True
         else:
@@ -2674,13 +2641,12 @@ class FdfParser:
     #
     #   Check whether reloc strip flag can be set for a section type.
     #
-    #   @param  self        The object pointer
     #   @param  SectionType The section type to check with
     #   @retval True        This type could have relocation strip flag
     #   @retval False       No way to have it
     #
-
-    def __SectionCouldHaveRelocFlag (self, SectionType):
+    @staticmethod
+    def __SectionCouldHaveRelocFlag (SectionType):
         if SectionType in ('TE', 'PE32'):
             return True
         else:
@@ -2797,12 +2763,11 @@ class FdfParser:
     def __GetFileOpts(self, FfsFileObj):
 
         if self.__GetNextToken():
-            Pattern = re.compile(r'([a-zA-Z0-9\-]+|\$\(TARGET\)|\*)_([a-zA-Z0-9\-]+|\$\(TOOL_CHAIN_TAG\)|\*)_([a-zA-Z0-9\-]+|\$\(ARCH\)|\*)')
-            if Pattern.match(self.__Token):
+            if TokenFindPattern.match(self.__Token):
                 FfsFileObj.KeyStringList.append(self.__Token)
                 if self.__IsToken(","):
                     while self.__GetNextToken():
-                        if not Pattern.match(self.__Token):
+                        if not TokenFindPattern.match(self.__Token):
                             raise Warning("expected KeyString \"Target_Tag_Arch\"", self.FileName, self.CurrentLineNumber)
                         FfsFileObj.KeyStringList.append(self.__Token)
 
@@ -3746,12 +3711,11 @@ class FdfParser:
 
         KeyStringList = []
         if self.__GetNextToken():
-            Pattern = re.compile(r'([a-zA-Z0-9\-]+|\$\(TARGET\)|\*)_([a-zA-Z0-9\-]+|\$\(TOOL_CHAIN_TAG\)|\*)_([a-zA-Z0-9\-]+|\$\(ARCH\)|\*)')
-            if Pattern.match(self.__Token):
+            if TokenFindPattern.match(self.__Token):
                 KeyStringList.append(self.__Token)
                 if self.__IsToken(","):
                     while self.__GetNextToken():
-                        if not Pattern.match(self.__Token):
+                        if not TokenFindPattern.match(self.__Token):
                             raise Warning("expected KeyString \"Target_Tag_Arch\"", self.FileName, self.CurrentLineNumber)
                         KeyStringList.append(self.__Token)
 
@@ -4021,12 +3985,12 @@ class FdfParser:
     #
     #   Get whether a section could be optional
     #
-    #   @param  self        The object pointer
     #   @param  SectionType The section type to check
     #   @retval True        section could be optional
     #   @retval False       section never optional
     #
-    def __RuleSectionCouldBeOptional(self, SectionType):
+    @staticmethod
+    def __RuleSectionCouldBeOptional(SectionType):
         if SectionType in ("DXE_DEPEX", "UI", "VERSION", "PEI_DEPEX", "RAW", "SMM_DEPEX"):
             return True
         else:
@@ -4036,12 +4000,12 @@ class FdfParser:
     #
     #   Get whether a section could have build number information
     #
-    #   @param  self        The object pointer
     #   @param  SectionType The section type to check
     #   @retval True        section could have build number information
     #   @retval False       section never have build number information
     #
-    def __RuleSectionCouldHaveBuildNum(self, SectionType):
+    @staticmethod
+    def __RuleSectionCouldHaveBuildNum(SectionType):
         if SectionType in ("VERSION"):
             return True
         else:
@@ -4051,12 +4015,12 @@ class FdfParser:
     #
     #   Get whether a section could have string
     #
-    #   @param  self        The object pointer
     #   @param  SectionType The section type to check
     #   @retval True        section could have string
     #   @retval False       section never have string
     #
-    def __RuleSectionCouldHaveString(self, SectionType):
+    @staticmethod
+    def __RuleSectionCouldHaveString(SectionType):
         if SectionType in ("UI", "VERSION"):
             return True
         else:
@@ -4296,7 +4260,7 @@ class FdfParser:
             raise Warning("expected Component type", self.FileName, self.CurrentLineNumber)
         if self.__Token not in ("FIT", "PAL_B", "PAL_A", "OEM"):
             if not self.__Token.startswith("0x") or len(self.__Token) < 3 or len(self.__Token) > 4 or \
-                not self.__HexDigit(self.__Token[2]) or not self.__HexDigit(self.__Token[-1]):
+                not self.__Token[2] in string.hexdigits or not self.__Token[-1] in string.hexdigits:
                 raise Warning("Unknown location type '%s'" % self.__Token, self.FileName, self.CurrentLineNumber)
         CompStatementObj.CompType = self.__Token
 
