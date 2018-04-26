@@ -838,7 +838,7 @@ class PcdReport(object):
                 for PcdItem in GlobalData.gConditionalPcds:
                     if '.' in PcdItem:
                         (TokenSpaceGuidCName, TokenCName) = PcdItem.split('.')
-                        if (TokenCName, TokenSpaceGuidCName) in Pa.Platform.Pcds.keys():
+                        if (TokenCName, TokenSpaceGuidCName) in Pa.Platform.Pcds:
                             Pcd = Pa.Platform.Pcds[(TokenCName, TokenSpaceGuidCName)]
                             PcdList = self.ConditionalPcds.setdefault(Pcd.TokenSpaceGuidCName, {}).setdefault(Pcd.Type, [])
                             if Pcd not in PcdList:
@@ -1007,7 +1007,7 @@ class PcdReport(object):
                         First = False
 
 
-                    if Pcd.DatumType in ('UINT8', 'UINT16', 'UINT32', 'UINT64'):
+                    if Pcd.DatumType in TAB_PCD_CLEAN_NUMERIC_TYPES:
                         PcdValueNumber = int(PcdValue.strip(), 0)
                         if DecDefaultValue is None:
                             DecMatch = True
@@ -1043,7 +1043,7 @@ class PcdReport(object):
                             DscMatch = (DscDefaultValue.strip() == PcdValue.strip())
 
                     IsStructure = False
-                    if GlobalData.gStructurePcd and (self.Arch in GlobalData.gStructurePcd.keys()) and ((Pcd.TokenCName, Pcd.TokenSpaceGuidCName) in GlobalData.gStructurePcd[self.Arch]):
+                    if GlobalData.gStructurePcd and (self.Arch in GlobalData.gStructurePcd) and ((Pcd.TokenCName, Pcd.TokenSpaceGuidCName) in GlobalData.gStructurePcd[self.Arch]):
                         IsStructure = True
                         if TypeName in ('DYNVPD', 'DEXVPD'):
                             SkuInfoList = Pcd.SkuInfoList
@@ -1112,7 +1112,7 @@ class PcdReport(object):
                             ModuleOverride = self.ModulePcdOverride.get((Pcd.TokenCName, Pcd.TokenSpaceGuidCName), {})
                             for ModulePath in ModuleOverride:
                                 ModuleDefault = ModuleOverride[ModulePath]
-                                if Pcd.DatumType in ('UINT8', 'UINT16', 'UINT32', 'UINT64'):
+                                if Pcd.DatumType in TAB_PCD_CLEAN_NUMERIC_TYPES:
                                     ModulePcdDefaultValueNumber = int(ModuleDefault.strip(), 0)
                                     Match = (ModulePcdDefaultValueNumber == PcdValueNumber)
                                 else:
