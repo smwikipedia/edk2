@@ -42,6 +42,13 @@ import subprocess
 ## Regular expression used to find out place holders in string template
 gPlaceholderPattern = re.compile("\$\{([^$()\s]+)\}", re.MULTILINE | re.UNICODE)
 
+## regular expressions for map file processing
+startPatternGeneral = re.compile("^Start[' ']+Length[' ']+Name[' ']+Class")
+addressPatternGeneral = re.compile("^Address[' ']+Publics by Value[' ']+Rva\+Base")
+valuePatternGcc = re.compile('^([\w_\.]+) +([\da-fA-Fx]+) +([\da-fA-Fx]+)$')
+pcdPatternGcc = re.compile('^([\da-fA-Fx]+) +([\da-fA-Fx]+)')
+secReGeneral = re.compile('^([\da-fA-F]+):([\da-fA-F]+) +([\da-fA-F]+)[Hh]? +([.\w\$]+) +(\w+)', re.UNICODE)
+
 ## Dictionary used to store file time stamp for quick re-access
 gFileTimeStampCache = {}    # {file path : file time stamp}
 
@@ -84,6 +91,7 @@ def _parseForXcode(lines, efifilepath, varnames):
         if status == 1 and len(line) != 0:
             for varname in varnames:
                 if varname in line:
+                    # cannot pregenerate this RegEx since it uses varname from varnames.
                     m = re.match('^([\da-fA-FxX]+)([\s\S]*)([_]*%s)$' % varname, line)
                     if m is not None:
                         ret.append((varname, m.group(1)))
@@ -109,7 +117,7 @@ def _parseForGCC(lines, efifilepath, varnames):
 
         # status handler
         if status == 3:
-            m = re.match('^([\w_\.]+) +([\da-fA-Fx]+) +([\da-fA-Fx]+)$', line)
+            m = valuePatternGcc.match(line)
             if m is not None:
                 sections.append(m.groups(0))
             for varname in varnames:
@@ -122,7 +130,7 @@ def _parseForGCC(lines, efifilepath, varnames):
                     else:
                         Str = line[len(".data.%s" % varname):]
                     if Str:
-                        m = re.match('^([\da-fA-Fx]+) +([\da-fA-Fx]+)', Str.strip())
+                        m = pcdPatternGcc.match(Str.strip())
                         if m is not None:
                             varoffset.append((varname, int(m.groups(0)[0], 16) , int(sections[-1][1], 16), sections[-1][0]))
 
@@ -150,22 +158,21 @@ def _parseGeneral(lines, efifilepath, varnames):
     status = 0    #0 - beginning of file; 1 - PE section definition; 2 - symbol table
     secs  = []    # key = section name
     varoffset = []
-    secRe = re.compile('^([\da-fA-F]+):([\da-fA-F]+) +([\da-fA-F]+)[Hh]? +([.\w\$]+) +(\w+)', re.UNICODE)
     symRe = re.compile('^([\da-fA-F]+):([\da-fA-F]+) +([\.:\\\\\w\?@\$]+) +([\da-fA-F]+)', re.UNICODE)
 
     for line in lines:
         line = line.strip()
-        if re.match("^Start[' ']+Length[' ']+Name[' ']+Class", line):
+        if startPatternGeneral.match(line):
             status = 1
             continue
-        if re.match("^Address[' ']+Publics by Value[' ']+Rva\+Base", line):
+        if addressPatternGeneral.match(line):
             status = 2
             continue
-        if re.match("^entry point at", line):
+        if line.startswith("entry point at"):
             status = 3
             continue        
         if status == 1 and len(line) != 0:
-            m =  secRe.match(line)
+            m =  secReGeneral.match(line)
             assert m is not None, "Fail to parse the section in map file , line is %s" % line
             sec_no, sec_start, sec_length, sec_name, sec_class = m.groups(0)
             secs.append([int(sec_no, 16), int(sec_start, 16), int(sec_length, 16), sec_name, sec_class])
@@ -177,6 +184,7 @@ def _parseGeneral(lines, efifilepath, varnames):
                 sec_no     = int(sec_no,     16)
                 sym_offset = int(sym_offset, 16)
                 vir_addr   = int(vir_addr,   16)
+                # cannot pregenerate this RegEx since it uses varname from varnames.
                 m2 = re.match('^[_]*(%s)' % varname, sym_name)
                 if m2 is not None:
                     # fond a binary pcd entry in map file
@@ -825,7 +833,7 @@ class TemplateString(object):
     def Append(self, AppendString, Dictionary=None):
         if Dictionary:
             SectionList = self._Parse(AppendString)
-            self.String += "".join([S.Instantiate(Dictionary) for S in SectionList])
+            self.String += "".join(S.Instantiate(Dictionary) for S in SectionList)
         else:
             self.String += AppendString
 
@@ -836,7 +844,7 @@ class TemplateString(object):
     #   @retval     str             The string replaced with placeholder values
     #
     def Replace(self, Dictionary=None):
-        return "".join([S.Instantiate(Dictionary) for S in self._TemplateSectionList])
+        return "".join(S.Instantiate(Dictionary) for S in self._TemplateSectionList)
 
 ## Progress indicator class
 #
@@ -1211,7 +1219,7 @@ class tdict:
 
 def IsFieldValueAnArray (Value):
     Value = Value.strip()
-    if Value.startswith('GUID') and Value.endswith(')'):
+    if Value.startswith(TAB_GUID) and Value.endswith(')'):
         return True
     if Value.startswith('L"') and Value.endswith('"')  and len(list(Value[2:-1])) > 1:
         return True
@@ -1308,7 +1316,7 @@ def ParseFieldValue (Value):
         if Size > 8:
             raise BadExpression('Value (%s) Size larger than %d' % (Value, Size))
         return Value, 8
-    if Value.startswith('GUID') and Value.endswith(')'):
+    if Value.startswith(TAB_GUID) and Value.endswith(')'):
         Value = Value.split('(', 1)[1][:-1].strip()
         if Value[0] == '{' and Value[-1] == '}':
             TmpValue = GuidStructureStringToGuidString(Value)
@@ -1918,7 +1926,7 @@ class DefaultStore():
         if not self.DefaultStores or "0" in self.DefaultStores:
             return "0",TAB_DEFAULT_STORES_DEFAULT
         else:
-            minvalue = min([int(value_str) for value_str in self.DefaultStores])
+            minvalue = min(int(value_str) for value_str in self.DefaultStores)
             return (str(minvalue), self.DefaultStores[str(minvalue)])
     def GetMin(self,DefaultSIdList):
         if not DefaultSIdList:
@@ -2015,7 +2023,7 @@ class SkuClass():
             skuorderset.append(self.GetSkuChain(skuname))
         
         skuorder = []
-        for index in range(max([len(item) for item in skuorderset])):
+        for index in range(max(len(item) for item in skuorderset)):
             for subset in skuorderset:
                 if index > len(subset)-1:
                     continue
@@ -2079,20 +2087,7 @@ class SkuClass():
 # Pack a registry format GUID
 #
 def PackRegistryFormatGuid(Guid):
-    Guid = Guid.split('-')
-    return pack('=LHHBBBBBBBB',
-                int(Guid[0], 16),
-                int(Guid[1], 16),
-                int(Guid[2], 16),
-                int(Guid[3][-4:-2], 16),
-                int(Guid[3][-2:], 16),
-                int(Guid[4][-12:-10], 16),
-                int(Guid[4][-10:-8], 16),
-                int(Guid[4][-8:-6], 16),
-                int(Guid[4][-6:-4], 16),
-                int(Guid[4][-4:-2], 16),
-                int(Guid[4][-2:], 16)
-                )
+    return PackGUID(Guid.split('-'))
 
 ##  Get the integer value from string like "14U" or integer like 2
 #
@@ -2117,6 +2112,42 @@ def GetIntegerValue(Input):
         return 0
     else:
         return int(String)
+
+#
+# Pack a GUID (registry format) list into a buffer and return it
+#
+def PackGUID(Guid):
+    return pack(PACK_PATTERN_GUID,
+                int(Guid[0], 16),
+                int(Guid[1], 16),
+                int(Guid[2], 16),
+                int(Guid[3][-4:-2], 16),
+                int(Guid[3][-2:], 16),
+                int(Guid[4][-12:-10], 16),
+                int(Guid[4][-10:-8], 16),
+                int(Guid[4][-8:-6], 16),
+                int(Guid[4][-6:-4], 16),
+                int(Guid[4][-4:-2], 16),
+                int(Guid[4][-2:], 16)
+                )
+
+#
+# Pack a GUID (byte) list into a buffer and return it
+#
+def PackByteFormatGUID(Guid):
+    return pack(PACK_PATTERN_GUID,
+                Guid[0],
+                Guid[1],
+                Guid[2],
+                Guid[3],
+                Guid[4],
+                Guid[5],
+                Guid[6],
+                Guid[7],
+                Guid[8],
+                Guid[9],
+                Guid[10],
+                )
 
 ##
 #

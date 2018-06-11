@@ -1,7 +1,7 @@
 ## @file
 # process FV image section generation
 #
-#  Copyright (c) 2007 - 2017, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -24,6 +24,7 @@ import Common.LongFilePathOs as os
 from CommonDataClass.FdfClass import FvImageSectionClassObject
 from Common import EdkLogger
 from Common.BuildToolError import *
+from Common.DataType import *
 
 ## generate FV image section
 #
@@ -74,7 +75,7 @@ class FvImageSection(FvImageSectionClassObject):
                 if FvAlignmentValue > MaxFvAlignment:
                     MaxFvAlignment = FvAlignmentValue
 
-                OutputFile = os.path.join(OutputPath, ModuleName + 'SEC' + Num + Ffs.SectionSuffix.get("FV_IMAGE"))
+                OutputFile = os.path.join(OutputPath, ModuleName + SUP_MODULE_SEC + Num + Ffs.SectionSuffix.get("FV_IMAGE"))
                 GenFdsGlobalVariable.GenerateSection(OutputFile, [FvFileName], 'EFI_SECTION_FIRMWARE_VOLUME_IMAGE', IsMakefile=IsMakefile)
                 OutputFileList.append(OutputFile)
 
@@ -82,7 +83,7 @@ class FvImageSection(FvImageSectionClassObject):
             if MaxFvAlignment >= 0x400:
                 if MaxFvAlignment >= 0x100000:
                     #The max alignment supported by FFS is 16M.
-                    if MaxFvAlignment >=1000000:
+                    if MaxFvAlignment >= 0x1000000:
                         self.Alignment = "16M"
                     else:
                         self.Alignment = str(MaxFvAlignment / 0x100000) + "M"
@@ -132,13 +133,19 @@ class FvImageSection(FvImageSectionClassObject):
                             # FvAlignmentValue is less than 1K
                             self.Alignment = str (FvAlignmentValue)
                         FvFileObj.close()
+                    else:
+                        if len (mws.getPkgPath()) == 0:
+                            EdkLogger.error("GenFds", FILE_NOT_FOUND, "%s is not found in WORKSPACE: %s" % self.FvFileName, GenFdsGlobalVariable.WorkSpaceDir)
+                        else:
+                            EdkLogger.error("GenFds", FILE_NOT_FOUND, "%s is not found in packages path:\n\t%s" % (self.FvFileName, '\n\t'.join(mws.getPkgPath())))
+
                 else:
                     EdkLogger.error("GenFds", GENFDS_ERROR, "FvImageSection Failed! %s NOT found in FDF" % self.FvName)
 
             #
             # Prepare the parameter of GenSection
             #
-            OutputFile = os.path.join(OutputPath, ModuleName + 'SEC' + SecNum + Ffs.SectionSuffix.get("FV_IMAGE"))
+            OutputFile = os.path.join(OutputPath, ModuleName + SUP_MODULE_SEC + SecNum + Ffs.SectionSuffix.get("FV_IMAGE"))
             GenFdsGlobalVariable.GenerateSection(OutputFile, [FvFileName], 'EFI_SECTION_FIRMWARE_VOLUME_IMAGE', IsMakefile=IsMakefile)
             OutputFileList.append(OutputFile)
 

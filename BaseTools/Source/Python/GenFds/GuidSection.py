@@ -2,6 +2,7 @@
 # process GUIDed section generation
 #
 #  Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2018, Hewlett Packard Enterprise Development, L.P.<BR>
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -28,6 +29,7 @@ from Common.BuildToolError import *
 from FvImageSection import FvImageSection
 from Common.LongFilePathSupport import OpenLongFilePath as open
 from GenFds import FindExtendTool
+from Common.DataType import *
 
 ## generate GUIDed section
 #
@@ -121,7 +123,7 @@ class GuidSection(GuidSectionClassObject) :
         OutputFile = OutputPath + \
                      os.sep + \
                      ModuleName + \
-                     'SEC' + \
+                     SUP_MODULE_SEC + \
                      SecNum + \
                      Ffs.SectionSuffix['GUIDED']
         OutputFile = os.path.normpath(OutputFile)
@@ -156,7 +158,7 @@ class GuidSection(GuidSectionClassObject) :
             TempFile = OutputPath + \
                        os.sep + \
                        ModuleName + \
-                       'SEC' + \
+                       SUP_MODULE_SEC + \
                        SecNum + \
                        '.tmp'
             TempFile = os.path.normpath(TempFile)
@@ -272,7 +274,7 @@ class GuidSection(GuidSectionClassObject) :
                 self.Alignment = None
                 self.IncludeFvSection = False
                 self.ProcessRequired = "TRUE"
-            if IsMakefile and self.Alignment.strip() == '0':
+            if IsMakefile and self.Alignment is not None and self.Alignment.strip() == '0':
                 self.Alignment = '1'
             return OutputFileList, self.Alignment
 

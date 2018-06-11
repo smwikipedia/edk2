@@ -866,10 +866,10 @@ LookupUnicodeString2 (
 EFI_STATUS
 EFIAPI
 AddUnicodeString (
-  IN CONST CHAR8               *Language,
-  IN CONST CHAR8               *SupportedLanguages,
-  IN EFI_UNICODE_STRING_TABLE  **UnicodeStringTable,
-  IN CONST CHAR16              *UnicodeString
+  IN     CONST CHAR8               *Language,
+  IN     CONST CHAR8               *SupportedLanguages,
+  IN OUT EFI_UNICODE_STRING_TABLE  **UnicodeStringTable,
+  IN     CONST CHAR16              *UnicodeString
   )
 {
   UINTN                     NumberOfEntries;
@@ -1043,11 +1043,11 @@ AddUnicodeString (
 EFI_STATUS
 EFIAPI
 AddUnicodeString2 (
-  IN CONST CHAR8               *Language,
-  IN CONST CHAR8               *SupportedLanguages,
-  IN EFI_UNICODE_STRING_TABLE  **UnicodeStringTable,
-  IN CONST CHAR16              *UnicodeString,
-  IN BOOLEAN                   Iso639Language
+  IN     CONST CHAR8               *Language,
+  IN     CONST CHAR8               *SupportedLanguages,
+  IN OUT EFI_UNICODE_STRING_TABLE  **UnicodeStringTable,
+  IN     CONST CHAR16              *UnicodeString,
+  IN     BOOLEAN                   Iso639Language
   )
 {
   UINTN                     NumberOfEntries;
@@ -1486,7 +1486,7 @@ CHAR8 *
 EFIAPI
 GetBestLanguage (
   IN CONST CHAR8  *SupportedLanguages, 
-  IN BOOLEAN      Iso639Language,
+  IN UINTN        Iso639Language,
   ...
   )
 {
@@ -1650,6 +1650,10 @@ EfiLocateProtocolBuffer (
                   (VOID **)Buffer
                   );
   if (EFI_ERROR (Status)) {
+    //
+    // Free the handle buffer
+    //
+    gBS->FreePool (HandleBuffer);
     return EFI_OUT_OF_RESOURCES;
   }
   ZeroMem (*Buffer, NoHandles * sizeof (VOID *));

@@ -44,10 +44,9 @@ COMMON_PYTHON=$(BASE_TOOLS_PATH)\Source\Python\Common\BuildToolError.py \
               $(BASE_TOOLS_PATH)\Source\Python\Common\LongFilePathOs.py \
               $(BASE_TOOLS_PATH)\Source\Python\Common\LongFilePathOsPath.py \
               $(BASE_TOOLS_PATH)\Source\Python\Common\LongFilePathSupport.py \
-              $(BASE_TOOLS_PATH)\Source\Python\Common\MigrationUtilities.py \
               $(BASE_TOOLS_PATH)\Source\Python\Common\Misc.py \
               $(BASE_TOOLS_PATH)\Source\Python\Common\Parsing.py \
-              $(BASE_TOOLS_PATH)\Source\Python\Common\String.py \
+              $(BASE_TOOLS_PATH)\Source\Python\Common\StringUtils.py \
               $(BASE_TOOLS_PATH)\Source\Python\Common\TargetTxtClassObject.py \
               $(BASE_TOOLS_PATH)\Source\Python\Common\ToolDefClassObject.py \
               $(BASE_TOOLS_PATH)\Source\Python\Common\VpdInfoFile.py \
@@ -168,7 +167,7 @@ CMD_UPT=$(BASE_TOOLS_PATH)\Source\Python\UPT\Core\DependencyRules.py \
     $(BASE_TOOLS_PATH)\Source\Python\UPT\Library\Misc.py \
     $(BASE_TOOLS_PATH)\Source\Python\UPT\Library\ParserValidate.py \
     $(BASE_TOOLS_PATH)\Source\Python\UPT\Library\Parsing.py \
-    $(BASE_TOOLS_PATH)\Source\Python\UPT\Library\String.py \
+    $(BASE_TOOLS_PATH)\Source\Python\UPT\Library\StringUtils.py \
     $(BASE_TOOLS_PATH)\Source\Python\UPT\Library\UniClassObject.py \
     $(BASE_TOOLS_PATH)\Source\Python\UPT\Library\Xml\XmlRoutines.py \
     $(BASE_TOOLS_PATH)\Source\Python\UPT\Logger\Log.py \
