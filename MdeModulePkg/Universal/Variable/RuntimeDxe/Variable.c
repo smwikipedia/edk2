@@ -16,7 +16,7 @@
   VariableServiceSetVariable() should also check authenticate data to avoid buffer overflow,
   integer overflow. It should also check attribute to avoid authentication bypass.
 
-Copyright (c) 2006 - 2017, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
 (C) Copyright 2015-2018 Hewlett Packard Enterprise Development LP<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
@@ -1533,8 +1533,8 @@ GetLangFromSupportedLangCodes (
   @param[in]  SupportedLanguages  A pointer to a Null-terminated ASCII string that
                                   contains a set of language codes in the format
                                   specified by Iso639Language.
-  @param[in]  Iso639Language      If TRUE, then all language codes are assumed to be
-                                  in ISO 639-2 format.  If FALSE, then all language
+  @param[in]  Iso639Language      If not zero, then all language codes are assumed to be
+                                  in ISO 639-2 format.  If zero, then all language
                                   codes are assumed to be in RFC 4646 language format
   @param[in]  ...                 A variable argument list that contains pointers to
                                   Null-terminated ASCII strings that contain one or more
@@ -1588,7 +1588,7 @@ VariableGetBestLanguage (
     //
     // If in RFC 4646 mode, then determine the length of the first RFC 4646 language code in Language
     //
-    if (!Iso639Language) {
+    if (Iso639Language == 0) {
       for (LanguageLength = 0; Language[LanguageLength] != 0 && Language[LanguageLength] != ';'; LanguageLength++);
     }
 
@@ -1603,7 +1603,7 @@ VariableGetBestLanguage (
         //
         // In RFC 4646 mode, then Loop through all language codes in SupportedLanguages
         //
-        if (!Iso639Language) {
+        if (Iso639Language == 0) {
           //
           // Skip ';' characters in Supported
           //
@@ -1625,13 +1625,13 @@ VariableGetBestLanguage (
         if (AsciiStrnCmp (Supported, Language, LanguageLength) == 0) {
           VA_END (Args);
 
-          Buffer = Iso639Language ? mVariableModuleGlobal->Lang : mVariableModuleGlobal->PlatformLang;
+          Buffer = (Iso639Language != 0) ? mVariableModuleGlobal->Lang : mVariableModuleGlobal->PlatformLang;
           Buffer[CompareLength] = '\0';
           return CopyMem (Buffer, Supported, CompareLength);
         }
       }
 
-      if (Iso639Language) {
+      if (Iso639Language != 0) {
         //
         // If ISO 639 mode, then each language can only be tested once
         //
@@ -4169,6 +4169,88 @@ ConvertNormalVarStorageToAuthVarStorage (
   mVariableModuleGlobal->VariableGlobal.AuthFormat = TRUE;
   return AuthVarStorage;
 }
+
+/**
+  Get HOB variable store.
+
+  @param[in] VariableGuid       NV variable store signature.
+
+  @retval EFI_SUCCESS           Function successfully executed.
+  @retval EFI_OUT_OF_RESOURCES  Fail to allocate enough memory resource.
+
+**/
+EFI_STATUS
+GetHobVariableStore (
+  IN EFI_GUID                   *VariableGuid
+  )
+{
+  VARIABLE_STORE_HEADER         *VariableStoreHeader;
+  UINT64                        VariableStoreLength;
+  EFI_HOB_GUID_TYPE             *GuidHob;
+  BOOLEAN                       NeedConvertNormalToAuth;
+
+  //
+  // Make sure there is no more than one Variable HOB.
+  //
+  DEBUG_CODE (
+    GuidHob = GetFirstGuidHob (&gEfiAuthenticatedVariableGuid);
+    if (GuidHob != NULL) {
+      if ((GetNextGuidHob (&gEfiAuthenticatedVariableGuid, GET_NEXT_HOB (GuidHob)) != NULL)) {
+        DEBUG ((DEBUG_ERROR, "ERROR: Found two Auth Variable HOBs\n"));
+        ASSERT (FALSE);
+      } else if (GetFirstGuidHob (&gEfiVariableGuid) != NULL) {
+        DEBUG ((DEBUG_ERROR, "ERROR: Found one Auth + one Normal Variable HOBs\n"));
+        ASSERT (FALSE);
+      }
+    } else {
+      GuidHob = GetFirstGuidHob (&gEfiVariableGuid);
+      if (GuidHob != NULL) {
+        if ((GetNextGuidHob (&gEfiVariableGuid, GET_NEXT_HOB (GuidHob)) != NULL)) {
+          DEBUG ((DEBUG_ERROR, "ERROR: Found two Normal Variable HOBs\n"));
+          ASSERT (FALSE);
+        }
+      }
+    }
+  );
+
+  //
+  // Combinations supported:
+  // 1. Normal NV variable store +
+  //    Normal HOB variable store
+  // 2. Auth NV variable store +
+  //    Auth HOB variable store
+  // 3. Auth NV variable store +
+  //    Normal HOB variable store (code will convert it to Auth Format)
+  //
+  NeedConvertNormalToAuth = FALSE;
+  GuidHob = GetFirstGuidHob (VariableGuid);
+  if (GuidHob == NULL && VariableGuid == &gEfiAuthenticatedVariableGuid) {
+    //
+    // Try getting it from normal variable HOB
+    //
+    GuidHob = GetFirstGuidHob (&gEfiVariableGuid);
+    NeedConvertNormalToAuth = TRUE;
+  }
+  if (GuidHob != NULL) {
+    VariableStoreHeader = GET_GUID_HOB_DATA (GuidHob);
+    VariableStoreLength = GuidHob->Header.HobLength - sizeof (EFI_HOB_GUID_TYPE);
+    if (GetVariableStoreStatus (VariableStoreHeader) == EfiValid) {
+      if (!NeedConvertNormalToAuth) {
+        mVariableModuleGlobal->VariableGlobal.HobVariableBase = (EFI_PHYSICAL_ADDRESS) (UINTN) AllocateRuntimeCopyPool ((UINTN) VariableStoreLength, (VOID *) VariableStoreHeader);
+      } else {
+        mVariableModuleGlobal->VariableGlobal.HobVariableBase = (EFI_PHYSICAL_ADDRESS) (UINTN) ConvertNormalVarStorageToAuthVarStorage ((VOID *) VariableStoreHeader);
+      }
+      if (mVariableModuleGlobal->VariableGlobal.HobVariableBase == 0) {
+        return EFI_OUT_OF_RESOURCES;
+      }
+    } else {
+      DEBUG ((EFI_D_ERROR, "HOB Variable Store header is corrupted!\n"));
+    }
+  }
+
+  return EFI_SUCCESS;
+}
+
 /**
   Initializes variable store area for non-volatile and volatile variable.
 
@@ -4183,13 +4265,9 @@ VariableCommonInitialize (
 {
   EFI_STATUS                      Status;
   VARIABLE_STORE_HEADER           *VolatileVariableStore;
-  VARIABLE_STORE_HEADER           *VariableStoreHeader;
-  UINT64                          VariableStoreLength;
   UINTN                           ScratchSize;
-  EFI_HOB_GUID_TYPE               *GuidHob;
   EFI_GUID                        *VariableGuid;
   EFI_FIRMWARE_VOLUME_HEADER      *NvFvHeader;
-  BOOLEAN                         IsNormalVariableHob;
 
   //
   // Allocate runtime memory for variable driver global structure.
@@ -4231,32 +4309,11 @@ VariableCommonInitialize (
   //
   // Get HOB variable store.
   //
-  IsNormalVariableHob = FALSE;
-  GuidHob = GetFirstGuidHob (VariableGuid);
-  if (GuidHob == NULL && VariableGuid == &gEfiAuthenticatedVariableGuid) {
-    //
-    // Try getting it from normal variable HOB
-    //
-    GuidHob = GetFirstGuidHob (&gEfiVariableGuid);
-    IsNormalVariableHob = TRUE;
-  }
-  if (GuidHob != NULL) {
-    VariableStoreHeader = GET_GUID_HOB_DATA (GuidHob);
-    VariableStoreLength = GuidHob->Header.HobLength - sizeof (EFI_HOB_GUID_TYPE);
-    if (GetVariableStoreStatus (VariableStoreHeader) == EfiValid) {
-      if (!IsNormalVariableHob) {
-        mVariableModuleGlobal->VariableGlobal.HobVariableBase = (EFI_PHYSICAL_ADDRESS) (UINTN) AllocateRuntimeCopyPool ((UINTN) VariableStoreLength, (VOID *) VariableStoreHeader);
-      } else {
-        mVariableModuleGlobal->VariableGlobal.HobVariableBase = (EFI_PHYSICAL_ADDRESS) (UINTN) ConvertNormalVarStorageToAuthVarStorage ((VOID *) VariableStoreHeader);
-      }
-      if (mVariableModuleGlobal->VariableGlobal.HobVariableBase == 0) {
-        FreePool (NvFvHeader);
-        FreePool (mVariableModuleGlobal);
-        return EFI_OUT_OF_RESOURCES;
-      }
-    } else {
-      DEBUG ((EFI_D_ERROR, "HOB Variable Store header is corrupted!\n"));
-    }
+  Status = GetHobVariableStore (VariableGuid);
+  if (EFI_ERROR (Status)) {
+    FreePool (NvFvHeader);
+    FreePool (mVariableModuleGlobal);
+    return Status;
   }
 
   mVariableModuleGlobal->MaxVolatileVariableSize = ((PcdGet32 (PcdMaxVolatileVariableSize) != 0) ?

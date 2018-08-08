@@ -260,7 +260,7 @@ DxeMain (
   }
   Status = InitializeCpuExceptionHandlersEx (VectorInfoList, NULL);
   ASSERT_EFI_ERROR (Status);
-  
+
   //
   // Initialize Debug Agent to support source level debug in DXE phase
   //
@@ -301,8 +301,8 @@ DxeMain (
   // Call constructor for all libraries
   //
   ProcessLibraryConstructorList (gDxeCoreImageHandle, gDxeCoreST);
-  PERF_END   (NULL,"PEI", NULL, 0) ;
-  PERF_START (NULL,"DXE", NULL, 0) ;
+  PERF_CROSSMODULE_END   ("PEI");
+  PERF_CROSSMODULE_BEGIN ("DXE");
 
   //
   // Report DXE Core image information to the PE/COFF Extra Action Library
@@ -499,16 +499,12 @@ DxeMain (
   //
   // Initialize the DXE Dispatcher
   //
-  PERF_START (NULL,"CoreInitializeDispatcher", "DxeMain", 0) ;
   CoreInitializeDispatcher ();
-  PERF_END (NULL,"CoreInitializeDispatcher", "DxeMain", 0) ;
 
   //
   // Invoke the DXE Dispatcher
   //
-  PERF_START (NULL, "CoreDispatcher", "DxeMain", 0);
   CoreDispatcher ();
-  PERF_END (NULL, "CoreDispatcher", "DxeMain", 0);
 
   //
   // Display Architectural protocols that were not loaded if this is DEBUG build
@@ -536,7 +532,7 @@ DxeMain (
     REPORT_STATUS_CODE (
       EFI_ERROR_CODE | EFI_ERROR_MAJOR,
       (EFI_SOFTWARE_DXE_CORE | EFI_SW_DXE_CORE_EC_NO_ARCH)
-      );    
+      );
   }
   ASSERT_EFI_ERROR (Status);
 
@@ -784,7 +780,7 @@ CoreExitBootServices (
   Status = CoreTerminateMemoryMap (MapKey);
   if (EFI_ERROR (Status)) {
     //
-    // Notify other drivers that ExitBootServices fail 
+    // Notify other drivers that ExitBootServices fail
     //
     CoreNotifySignalList (&gEventExitBootServicesFailedGuid);
     return Status;

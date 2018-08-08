@@ -1,4 +1,4 @@
-/**
+/** @file
   Main file for 'acpiview' Shell command function.
 
   Copyright (c) 2016 - 2018, ARM Limited. All rights reserved.<BR>
@@ -49,7 +49,8 @@ ACPI_TABLE_PARSER ParserList[] = {
   {EFI_ACPI_6_2_EXTENDED_SYSTEM_DESCRIPTION_TABLE_SIGNATURE, ParseAcpiXsdt}
 };
 
-/** This function registers all the available table parsers.
+/**
+  This function registers all the available table parsers.
 
   @retval EFI_SUCCESS           The parser is registered.
   @retval EFI_ALREADY_STARTED   The parser for the ACPI Table
@@ -57,13 +58,17 @@ ACPI_TABLE_PARSER ParserList[] = {
   @retval EFI_INVALID_PARAMETER A parameter is invalid.
   @retval EFI_OUT_OF_RESOURCES  No space to register the
                                 parser.
-*/
+**/
 EFI_STATUS
 RegisterAllParsers (
   )
 {
   EFI_STATUS Status;
-  UINTN Count = sizeof (ParserList) / sizeof (ParserList[0]);
+  UINTN Count;
+
+  Status = EFI_SUCCESS;
+  Count = sizeof (ParserList) / sizeof (ParserList[0]);
+
   while (Count-- != 0) {
     Status = RegisterParser (
                ParserList[Count].Signature,
@@ -80,7 +85,7 @@ RegisterAllParsers (
   Return the file name of the help text file if not using HII.
 
   @return The string pointer to the file name.
-*/
+**/
 CONST CHAR16*
 EFIAPI
 ShellCommandGetManFileNameAcpiView (
@@ -101,7 +106,7 @@ ShellCommandGetManFileNameAcpiView (
   @retval EFI_SUCCESS           The Shell command handlers were installed
                                 successfully.
   @retval EFI_DEVICE_ERROR      Hii package failed to install.
-*/
+**/
 EFI_STATUS
 EFIAPI
 UefiShellAcpiViewCommandLibConstructor (
@@ -113,7 +118,7 @@ UefiShellAcpiViewCommandLibConstructor (
   gShellAcpiViewHiiHandle = NULL;
 
   // Check Shell Profile Debug1 bit of the profiles mask
-  if ((FixedPcdGet8 (PcdShellProfileMask) & BIT1) == 0) {
+  if ((PcdGet8 (PcdShellProfileMask) & BIT1) == 0) {
     return EFI_SUCCESS;
   }
 
@@ -152,7 +157,7 @@ UefiShellAcpiViewCommandLibConstructor (
 
   @param ImageHandle            The image handle of the process.
   @param SystemTable            The EFI System Table pointer.
-*/
+**/
 EFI_STATUS
 EFIAPI
 UefiShellAcpiViewCommandLibDestructor (

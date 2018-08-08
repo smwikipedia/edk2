@@ -41,6 +41,7 @@
   ArmGicArchLib|Include/Library/ArmGicArchLib.h
   ArmMtlLib|ArmPlatformPkg/Include/Library/ArmMtlLib.h
   ArmSvcLib|Include/Library/ArmSvcLib.h
+  OpteeLib|Include/Library/OpteeLib.h
 
 [Guids.common]
   gArmTokenSpaceGuid       = { 0xBB11ECFE, 0x820F, 0x4968, { 0xBB, 0xA6, 0xF7, 0x6A, 0xFE, 0x30, 0x25, 0x96 } }
@@ -84,6 +85,10 @@
 
   # Define if the GICv3 controller should use the GICv2 legacy
   gArmTokenSpaceGuid.PcdArmGicV3WithV2Legacy|FALSE|BOOLEAN|0x00000042
+
+  # Whether to implement warm reboot for capsule update using a jump back to the
+  # PEI entry point with caches and interrupts disabled.
+  gArmTokenSpaceGuid.PcdArmReenterPeiForCapsuleWarmReboot|FALSE|BOOLEAN|0x0000001F
 
 [PcdsFeatureFlag.ARM]
   # Whether to map normal memory as non-shareable. FALSE is the safe choice, but
