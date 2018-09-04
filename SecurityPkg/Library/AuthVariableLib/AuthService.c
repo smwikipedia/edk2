@@ -1852,7 +1852,7 @@ VerifyTimeBasedPayload (
   // variable value. The authentication descriptor is not part of the variable data and is not
   // returned by subsequent calls to GetVariable().
   //
-  CertData = (EFI_VARIABLE_AUTHENTICATION_2 *) Data;
+  CertData = (EFI_VARIABLE_AUTHENTICATION_2 *) Data; //c: refer to UEFI spec 2.6 $7.2.1
 
   //
   // Verify that Pad1, Nanosecond, TimeZone, Daylight and Pad2 components of the

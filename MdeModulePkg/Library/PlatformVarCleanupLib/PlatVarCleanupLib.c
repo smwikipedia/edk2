@@ -388,7 +388,7 @@ CreateTimeBasedPayload (
     FreePool (NewData);
     return Status;
   }
-  Time.Pad1       = 0;
+  Time.Pad1       = 0; //c: refer to UEFI Spec 2.6 $7.2.1
   Time.Nanosecond = 0;
   Time.TimeZone   = 0;
   Time.Daylight   = 0;
