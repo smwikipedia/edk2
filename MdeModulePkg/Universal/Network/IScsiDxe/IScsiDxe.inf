@@ -30,7 +30,7 @@
 #
 # The following information is for reference only and not required by the build tools.
 #
-#  VALID_ARCHITECTURES           = IA32 X64 IPF EBC
+#  VALID_ARCHITECTURES           = IA32 X64 EBC
 #
 #  DRIVER_BINDING                =  gIScsiDriverBinding
 #  COMPONENT_NAME                =  gIScsiComponentName
@@ -108,7 +108,6 @@
   gEfiIfrTianoGuid                              ## SOMETIMES_PRODUCES ## UNDEFINED
   gEfiAcpiTableGuid                             ## SOMETIMES_CONSUMES ## SystemTable
   gEfiAcpi10TableGuid                           ## SOMETIMES_CONSUMES ## SystemTable
-  gEfiAcpi20TableGuid                           ## SOMETIMES_CONSUMES ## SystemTable
   ## SOMETIMES_PRODUCES ## Variable:L"iSCSIDeviceList"
   ## SOMETIMES_CONSUMES ## Variable:L"iSCSIDeviceList"
   ## SOMETIMES_CONSUMES ## UNDEFINED # HiiIsConfigHdrMatch   mVendorStorageName

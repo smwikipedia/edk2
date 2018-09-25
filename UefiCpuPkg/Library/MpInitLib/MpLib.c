@@ -217,9 +217,9 @@ RestoreVolatileRegisters (
   CPUID_VERSION_INFO_EDX        VersionInfoEdx;
   IA32_TSS_DESCRIPTOR           *Tss;
 
-  AsmWriteCr0 (VolatileRegisters->Cr0);
   AsmWriteCr3 (VolatileRegisters->Cr3);
   AsmWriteCr4 (VolatileRegisters->Cr4);
+  AsmWriteCr0 (VolatileRegisters->Cr0);
 
   if (IsRestoreDr) {
     AsmCpuid (CPUID_VERSION_INFO, NULL, NULL, NULL, &VersionInfoEdx.Uint32);
@@ -1014,7 +1014,7 @@ WakeUpAP (
         CpuData = &CpuMpData->CpuData[Index];
         //
         // All AP(include disabled AP) will be woke up by INIT-SIPI-SIPI, but
-        // the AP procedure will be skipped for disabled AP because AP state 
+        // the AP procedure will be skipped for disabled AP because AP state
         // is not CpuStateReady.
         //
         if (GetApState (CpuData) == CpuStateDisabled && !WakeUpDisabledAps) {
@@ -1558,7 +1558,7 @@ MpInitLibInitialize (
   ApLoopMode  = GetApLoopMode (&MonitorFilterSize);
 
   //
-  // Save BSP's Control registers for APs
+  // Save BSP's Control registers for APs.
   //
   SaveVolatileRegisters (&VolatileRegisters);
 
@@ -1656,6 +1656,10 @@ MpInitLibInitialize (
   //
   CopyMem ((VOID *)ApIdtBase, (VOID *)VolatileRegisters.Idtr.Base, VolatileRegisters.Idtr.Limit + 1);
   VolatileRegisters.Idtr.Base = ApIdtBase;
+  //
+  // Don't pass BSP's TR to APs to avoid AP init failure.
+  //
+  VolatileRegisters.Tr = 0;
   CopyMem (&CpuMpData->CpuData[0].VolatileRegisters, &VolatileRegisters, sizeof (VolatileRegisters));
   //
   // Set BSP basic information

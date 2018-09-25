@@ -66,9 +66,6 @@ ACPI_CPU_DATA                mAcpiCpuData;
 volatile UINT32              mNumberToFinish;
 MP_CPU_EXCHANGE_INFO         *mExchangeInfo;
 BOOLEAN                      mRestoreSmmConfigurationInS3 = FALSE;
-VOID                         *mGdtForAp = NULL;
-VOID                         *mIdtForAp = NULL;
-VOID                         *mMachineCheckHandlerForAp = NULL;
 MP_MSR_LOCK                  *mMsrSpinLocks = NULL;
 UINTN                        mMsrSpinLockCount;
 UINTN                        mMsrCount = 0;
@@ -448,13 +445,6 @@ PrepareApStartupVector (
   CopyMem ((VOID *) (UINTN) &mExchangeInfo->GdtrProfile, (VOID *) (UINTN) mAcpiCpuData.GdtrProfile, sizeof (IA32_DESCRIPTOR));
   CopyMem ((VOID *) (UINTN) &mExchangeInfo->IdtrProfile, (VOID *) (UINTN) mAcpiCpuData.IdtrProfile, sizeof (IA32_DESCRIPTOR));
 
-  //
-  // Copy AP's GDT, IDT and Machine Check handler from SMRAM to ACPI NVS memory
-  //
-  CopyMem ((VOID *) mExchangeInfo->GdtrProfile.Base, mGdtForAp, mExchangeInfo->GdtrProfile.Limit + 1);
-  CopyMem ((VOID *) mExchangeInfo->IdtrProfile.Base, mIdtForAp, mExchangeInfo->IdtrProfile.Limit + 1);
-  CopyMem ((VOID *)(UINTN) mAcpiCpuData.ApMachineCheckHandlerBase, mMachineCheckHandlerForAp, mAcpiCpuData.ApMachineCheckHandlerSize);
-
   mExchangeInfo->StackStart  = (VOID *) (UINTN) mAcpiCpuData.StackAddress;
   mExchangeInfo->StackSize   = mAcpiCpuData.StackSize;
   mExchangeInfo->BufferStart = (UINT32) StartupVector;
@@ -724,7 +714,15 @@ InitSmmS3ResumeState (
   }
 
   GuidHob = GetFirstGuidHob (&gEfiAcpiVariableGuid);
-  if (GuidHob != NULL) {
+  if (GuidHob == NULL) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "ERROR:%a(): HOB(gEfiAcpiVariableGuid=%g) needed by S3 resume doesn't exist!\n",
+      __FUNCTION__,
+      &gEfiAcpiVariableGuid
+    ));
+    CpuDeadLoop ();
+  } else {
     SmramDescriptor = (EFI_SMRAM_DESCRIPTOR *) GET_GUID_HOB_DATA (GuidHob);
 
     DEBUG ((EFI_D_INFO, "SMM S3 SMRAM Structure = %x\n", SmramDescriptor));
@@ -754,12 +752,12 @@ InitSmmS3ResumeState (
     if (sizeof (UINTN) == sizeof (UINT32)) {
       SmmS3ResumeState->Signature = SMM_S3_RESUME_SMM_32;
     }
-  }
 
-  //
-  // Patch SmmS3ResumeState->SmmS3Cr3
-  //
-  InitSmmS3Cr3 ();
+    //
+    // Patch SmmS3ResumeState->SmmS3Cr3
+    //
+    InitSmmS3Cr3 ();
+  }
 
   //
   // Allocate safe memory in ACPI NVS for AP to execute hlt loop in
@@ -831,6 +829,9 @@ GetAcpiCpuData (
   ACPI_CPU_DATA              *AcpiCpuData;
   IA32_DESCRIPTOR            *Gdtr;
   IA32_DESCRIPTOR            *Idtr;
+  VOID                       *GdtForAp;
+  VOID                       *IdtForAp;
+  VOID                       *MachineCheckHandlerForAp;
 
   if (!mAcpiS3Enable) {
     return;
@@ -893,14 +894,18 @@ GetAcpiCpuData (
   Gdtr = (IA32_DESCRIPTOR *)(UINTN)mAcpiCpuData.GdtrProfile;
   Idtr = (IA32_DESCRIPTOR *)(UINTN)mAcpiCpuData.IdtrProfile;
 
-  mGdtForAp = AllocatePool ((Gdtr->Limit + 1) + (Idtr->Limit + 1) +  mAcpiCpuData.ApMachineCheckHandlerSize);
-  ASSERT (mGdtForAp != NULL);
-  mIdtForAp = (VOID *) ((UINTN)mGdtForAp + (Gdtr->Limit + 1));
-  mMachineCheckHandlerForAp = (VOID *) ((UINTN)mIdtForAp + (Idtr->Limit + 1));
+  GdtForAp = AllocatePool ((Gdtr->Limit + 1) + (Idtr->Limit + 1) +  mAcpiCpuData.ApMachineCheckHandlerSize);
+  ASSERT (GdtForAp != NULL);
+  IdtForAp = (VOID *) ((UINTN)GdtForAp + (Gdtr->Limit + 1));
+  MachineCheckHandlerForAp = (VOID *) ((UINTN)IdtForAp + (Idtr->Limit + 1));
 
-  CopyMem (mGdtForAp, (VOID *)Gdtr->Base, Gdtr->Limit + 1);
-  CopyMem (mIdtForAp, (VOID *)Idtr->Base, Idtr->Limit + 1);
-  CopyMem (mMachineCheckHandlerForAp, (VOID *)(UINTN)mAcpiCpuData.ApMachineCheckHandlerBase, mAcpiCpuData.ApMachineCheckHandlerSize);
+  CopyMem (GdtForAp, (VOID *)Gdtr->Base, Gdtr->Limit + 1);
+  CopyMem (IdtForAp, (VOID *)Idtr->Base, Idtr->Limit + 1);
+  CopyMem (MachineCheckHandlerForAp, (VOID *)(UINTN)mAcpiCpuData.ApMachineCheckHandlerBase, mAcpiCpuData.ApMachineCheckHandlerSize);
+
+  Gdtr->Base = (UINTN)GdtForAp;
+  Idtr->Base = (UINTN)IdtForAp;
+  mAcpiCpuData.ApMachineCheckHandlerBase = (EFI_PHYSICAL_ADDRESS)(UINTN)MachineCheckHandlerForAp;
 }
 
 /**

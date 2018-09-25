@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from Common.GlobalData import *
 from CommonDataClass.Exceptions import BadExpression
 from CommonDataClass.Exceptions import WrnExpression
-from .Misc import GuidStringToGuidStructureString, ParseFieldValue, IsFieldValueAnArray
+from .Misc import GuidStringToGuidStructureString, ParseFieldValue
 import Common.EdkLogger as EdkLogger
 import copy
 from Common.DataType import *
@@ -29,7 +29,7 @@ ERR_MATCH               = 'No matching right parenthesis.'
 ERR_STRING_TOKEN        = 'Bad string token: [%s].'
 ERR_MACRO_TOKEN         = 'Bad macro token: [%s].'
 ERR_EMPTY_TOKEN         = 'Empty token is not allowed.'
-ERR_PCD_RESOLVE         = 'PCD token cannot be resolved: [%s].'
+ERR_PCD_RESOLVE         = 'The PCD should be FeatureFlag type or FixedAtBuild type: [%s].'
 ERR_VALID_TOKEN         = 'No more valid token found from rest of string: [%s].'
 ERR_EXPR_TYPE           = 'Different types found in expression.'
 ERR_OPERATOR_UNSUPPORT  = 'Unsupported operator: [%s]'
@@ -138,11 +138,11 @@ def BuildOptionValue(PcdValue, GuidDict):
         InputValue = 'L"' + PcdValue[1:] + '"'
     else:
         InputValue = PcdValue
-    if IsFieldValueAnArray(InputValue):
-        try:
-            PcdValue = ValueExpressionEx(InputValue, TAB_VOID, GuidDict)(True)
-        except:
-            pass
+    try:
+        PcdValue = ValueExpressionEx(InputValue, TAB_VOID, GuidDict)(True)
+    except:
+        pass
+
     return PcdValue
 
 ## ReplaceExprMacro
@@ -788,7 +788,7 @@ class ValueExpression(BaseExpression):
         OpToken = ''
         for Ch in Expr:
             if Ch in self.NonLetterOpLst:
-                if '!' == Ch and OpToken:
+                if Ch in ['!', '~'] and OpToken:
                     break
                 self._Idx += 1
                 OpToken += Ch
