@@ -76,11 +76,11 @@ typedef struct {
 typedef struct {
   UINT8     HeaderAllocated : 1;
   UINT8     WritesAllocated : 1;
-  UINT8     Complete : 1;
+  UINT8     Complete : 1; //c: set when all the write records belonging to this write header have their DestinationComplete flag set.
   UINT8     Reserved : 5;
   EFI_GUID  CallerId;
   UINT64    NumberOfWrites;
-  UINT64    PrivateDataSize;
+  UINT64    PrivateDataSize; // c: there can be private data after EACH write record.
 } EFI_FAULT_TOLERANT_WRITE_HEADER;
 
 //
@@ -88,8 +88,8 @@ typedef struct {
 //
 typedef struct {
   UINT8   BootBlockUpdate : 1;
-  UINT8   SpareComplete : 1;
-  UINT8   DestinationComplete : 1;
+  UINT8   SpareComplete : 1; //c: set when write to the spare buf in the spare block has completed.
+  UINT8   DestinationComplete : 1; //c: set when write to the variable FV has completed.
   UINT8   Reserved : 5;
   EFI_LBA Lba;
   UINT64  Offset;
@@ -97,7 +97,7 @@ typedef struct {
   //
   // Relative offset to spare block.
   //
-  INT64   RelativeOffset;
+  INT64   RelativeOffset; //c: relative offset of the write target address to the spare block
   //
   // UINT8    PrivateData[PrivateDataSize]
   //

@@ -613,7 +613,7 @@ GetVariableStore (
             //
             // Flash NV storage from the offset is backed up in spare block.
             //
-            BackUpOffset = (UINT32) (FtwLastWriteData->TargetAddress - NvStorageBase);
+            BackUpOffset = (UINT32) (FtwLastWriteData->TargetAddress - NvStorageBase); //c: the offset of the write target address relative to the NvStoreageBase.
             DEBUG ((EFI_D_INFO, "PeiVariable: High partial NV storage from offset: %x is backed up in spare block: 0x%x\n", BackUpOffset, (UINTN) FtwLastWriteData->SpareAddress));
             //
             // At least one block data in flash NV storage is still valid, so still leave FvHeader point to NV storage base.
@@ -890,7 +890,7 @@ FindVariableEx (
   //
   StopRecord = FALSE;
   while (GetVariableHeader (StoreInfo, Variable, &VariableHeader)) {
-    if (VariableHeader->State == VAR_ADDED || VariableHeader->State == (VAR_IN_DELETED_TRANSITION & VAR_ADDED)) {
+    if (VariableHeader->State == VAR_ADDED || VariableHeader->State == (VAR_IN_DELETED_TRANSITION & VAR_ADDED)) { //c: VAR_IN_DELETED_TRANSITION & VAR_ADDED = InDeleted
       //
       // Record Variable in VariableIndex HOB
       //

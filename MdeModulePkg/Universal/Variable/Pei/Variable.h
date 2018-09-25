@@ -46,7 +46,7 @@ typedef struct {
   // partial content is still in NV storage, but another partial content is backed up
   // in spare block.
   //
-  FAULT_TOLERANT_WRITE_LAST_WRITE_DATA    *FtwLastWriteData;
+  FAULT_TOLERANT_WRITE_LAST_WRITE_DATA    *FtwLastWriteData; //c: come from the GUID HOB (gEdkiiFaultTolerantWriteGuid)
   BOOLEAN                                 AuthFlag;
 } VARIABLE_STORE_INFO;
 

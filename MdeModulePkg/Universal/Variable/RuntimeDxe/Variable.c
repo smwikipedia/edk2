@@ -2269,7 +2269,7 @@ UpdateVariable (
     // When the EFI_VARIABLE_APPEND_WRITE attribute is set, DataSize of zero will
     // not delete the variable.
     //
-    if ((((Attributes & EFI_VARIABLE_APPEND_WRITE) == 0) && (DataSize == 0))|| ((Attributes & (EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_BOOTSERVICE_ACCESS)) == 0)) {
+    if ((((Attributes & EFI_VARIABLE_APPEND_WRITE) == 0) && (DataSize == 0))|| ((Attributes & (EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_BOOTSERVICE_ACCESS)) == 0)) {//c: delete variable
       if (Variable->InDeletedTransitionPtr != NULL) {
         //
         // Both ADDED and IN_DELETED_TRANSITION variable are present,
@@ -3198,7 +3198,7 @@ VariableServiceSetVariable (
       ((EFI_VARIABLE_AUTHENTICATION_2 *) Data)->AuthInfo.Hdr.dwLength < OFFSET_OF (WIN_CERTIFICATE_UEFI_GUID, CertData)) {
       return EFI_SECURITY_VIOLATION;
     }
-    PayloadSize = DataSize - AUTHINFO2_SIZE (Data);
+    PayloadSize = DataSize - AUTHINFO2_SIZE (Data); //c: Payload is the actual variable data without the EFI_VARIABLE_AUTHENTICATION_2 auth descriptor.
   } else {
     PayloadSize = DataSize;
   }
@@ -3312,7 +3312,7 @@ VariableServiceSetVariable (
   }
 
   if (mVariableModuleGlobal->VariableGlobal.AuthSupport) {
-    Status = AuthVariableLibProcessVariable (VariableName, VendorGuid, Data, DataSize, Attributes);
+    Status = AuthVariableLibProcessVariable (VariableName, VendorGuid, Data, DataSize, Attributes); //c: goto SecurityPkg
   } else {
     Status = UpdateVariable (VariableName, VendorGuid, Data, DataSize, Attributes, 0, 0, &Variable, NULL);
   }
@@ -4335,7 +4335,7 @@ VariableCommonInitialize (
     return EFI_OUT_OF_RESOURCES;
   }
 
-  SetMem (VolatileVariableStore, PcdGet32 (PcdVariableStoreSize) + ScratchSize, 0xff);
+  SetMem (VolatileVariableStore, PcdGet32 (PcdVariableStoreSize) + ScratchSize, 0xff); //c: Flash storage bit value defaults to 1. So use 0xff here to be consistent.
 
   //
   // Initialize Variable Specific Data.

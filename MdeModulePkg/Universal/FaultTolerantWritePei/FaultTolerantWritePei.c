@@ -58,13 +58,13 @@ FtwGetLastWriteHeader (
   Offset          = sizeof (EFI_FAULT_TOLERANT_WORKING_BLOCK_HEADER);
 
   while (FtwHeader->Complete == FTW_VALID_STATE) {
-    Offset += FTW_WRITE_TOTAL_SIZE (FtwHeader->NumberOfWrites, FtwHeader->PrivateDataSize);
+    Offset += FTW_WRITE_TOTAL_SIZE (FtwHeader->NumberOfWrites, FtwHeader->PrivateDataSize);  //c: skip a write queue, i.e. skip a (write header + all its write records + its private data).
     //
     // If Offset exceed the FTW work space boudary, return error.
     //
     if (Offset >= FtwWorkSpaceSize) {
       *FtwWriteHeader = FtwHeader;
-      return EFI_ABORTED;
+      return EFI_ABORTED; //c: this means all write headers' Complete state have been set. i.e. All writes have been completed.
     }
 
     FtwHeader = (EFI_FAULT_TOLERANT_WRITE_HEADER *) ((UINT8 *) FtwWorkSpaceHeader + Offset);
@@ -123,7 +123,7 @@ FtwGetLastWriteRecord (
   //
   //  if Index == NumberOfWrites, then
   //  the last record has been written successfully,
-  //  but the Header->Complete Flag has not been set.
+  //  but the Header->Complete Flag has not been set. //c: This Header->Complete is the WriteHeader's Complete flag. If WriteHeader's Complete has not been set, this FtwGetLastWriteRecord() will not be called. So we can be sure that WriteHeader's Complete is not set here.
   //  also return the last record.
   //
   if (Index == FtwWriteHeader->NumberOfWrites) {
@@ -131,7 +131,7 @@ FtwGetLastWriteRecord (
     return EFI_SUCCESS;
   }
 
-  return EFI_ABORTED;
+  return EFI_ABORTED; //c: If the workspace is damaged, the FtwWriteHeader->NumberOfWrites can be any value. Only when Index != FtwWriteHeader->NumberOfWrites (the damaged value). Code will return here.
 }
 
 /**
@@ -241,7 +241,7 @@ PeimFaultTolerantWriteInitialize (
   ASSERT ((WorkSpaceAddress != 0) && (SpareAreaAddress != 0));
 
   FtwWorkingBlockHeader = (EFI_FAULT_TOLERANT_WORKING_BLOCK_HEADER *) (UINTN) WorkSpaceAddress;
-  if (IsValidWorkSpace (FtwWorkingBlockHeader, WorkSpaceLength)) {
+  if (IsValidWorkSpace (FtwWorkingBlockHeader, WorkSpaceLength)) {//c: the workspace header should have been properly initialized in the FDF.
     Status = FtwGetLastWriteHeader (
                FtwWorkingBlockHeader,
                WorkSpaceLength,
@@ -264,15 +264,15 @@ PeimFaultTolerantWriteInitialize (
         // FAULT_TOLERANT_WRITE_LAST_WRITE_DATA GUID hob to hold the FTW last write data.
         //
         FtwLastWrite.TargetAddress = (EFI_PHYSICAL_ADDRESS) (UINTN) ((INT64) SpareAreaAddress + FtwLastWriteRecord->RelativeOffset);
-        FtwLastWrite.SpareAddress = SpareAreaAddress;
-        FtwLastWrite.Length = SpareAreaLength;
+        FtwLastWrite.SpareAddress = SpareAreaAddress; //c: Base address of the FTW spare block range in flash device. Note that this value should be block size aligned.
+        FtwLastWrite.Length = SpareAreaLength; //c: Size of the FTW spare block range. Note that this value should be larger than PcdFlashNvStorageVariableSize and block size aligned.
         DEBUG ((
           EFI_D_INFO,
           "FtwPei last write data: TargetAddress - 0x%x SpareAddress - 0x%x Length - 0x%x\n",
           (UINTN) FtwLastWrite.TargetAddress,
           (UINTN) FtwLastWrite.SpareAddress,
           (UINTN) FtwLastWrite.Length));
-        BuildGuidDataHob (&gEdkiiFaultTolerantWriteGuid, (VOID *) &FtwLastWrite, sizeof (FAULT_TOLERANT_WRITE_LAST_WRITE_DATA));
+        BuildGuidDataHob (&gEdkiiFaultTolerantWriteGuid, (VOID *) &FtwLastWrite, sizeof (FAULT_TOLERANT_WRITE_LAST_WRITE_DATA)); //c: so basically, the HOB recored the spare block's base, size, and the absolute physical address of the last write record's data within the spare block.
       }
     }
   } else {

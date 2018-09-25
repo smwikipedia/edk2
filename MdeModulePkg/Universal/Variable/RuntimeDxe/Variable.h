@@ -108,7 +108,7 @@ typedef struct {
   CHAR8           *PlatformLang;
   CHAR8           Lang[ISO_639_2_ENTRY_SIZE + 1];
   EFI_FIRMWARE_VOLUME_BLOCK_PROTOCOL *FvbInstance;
-} VARIABLE_MODULE_GLOBAL;
+} VARIABLE_MODULE_GLOBAL; //c: this is the major house-keeping metadata structure for the variable storage. both volatile and non-volatile.
 
 /**
   Flush the HOB variable to flash.
