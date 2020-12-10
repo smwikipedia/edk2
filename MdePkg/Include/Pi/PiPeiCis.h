@@ -1,18 +1,11 @@
 /** @file
   PI PEI master include file. This file should match the PI spec.
 
-Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials are licensed and made available under
-the terms and conditions of the BSD License that accompanies this distribution.
-The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php.
-
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+Copyright (c) 2006 - 2019, Intel Corporation. All rights reserved.<BR>
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
   @par Revision Reference:
-  PI Version 1.6.
+  PI Version 1.7.
 
 **/
 
@@ -621,9 +614,7 @@ EFI_STATUS
                             the data buffer starts with a Null-terminated string, optionally
                             followed by additional binary data. The string is a description
                             that the caller may use to further indicate the reason for the
-                            system reset. ResetData is only valid if ResetStatus is something
-                            other than EFI_SUCCESS unless the ResetType is EfiResetPlatformSpecific
-                            where a minimum amount of ResetData is always required.
+                            system reset.
 
 **/
 typedef
@@ -859,7 +850,7 @@ EFI_STATUS
 // PEI Specification Revision information
 //
 #define PEI_SPECIFICATION_MAJOR_REVISION  1
-#define PEI_SPECIFICATION_MINOR_REVISION  60
+#define PEI_SPECIFICATION_MINOR_REVISION  70
 ///
 /// Specification inconsistency here:
 /// In the PI1.0 spec, PEI_SERVICES_SIGNATURE is defined as 0x5652455320494550. But

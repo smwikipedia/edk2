@@ -3,13 +3,7 @@
 #
 #  Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
 #
-#  This program and the accompanying materials
-#  are licensed and made available under the terms and conditions of the BSD License
-#  which accompanies this distribution.  The full text of the license may be found at
-#  http://opensource.org/licenses/bsd-license.php
-#
-#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 
 ##
@@ -26,8 +20,6 @@ from Common.Misc import SaveFileOnChange
 from Common import EdkLogger
 from Common.BuildToolError import *
 
-T_CHAR_LF = '\n'
-
 ##
 #
 #
@@ -36,9 +28,9 @@ class OPTIONROM (OptionRomClassObject):
     #
     #   @param  self        The object pointer
     #
-    def __init__(self):
+    def __init__(self, Name = ""):
         OptionRomClassObject.__init__(self)
-
+        self.DriverName = Name
 
     ## AddToBuffer()
     #

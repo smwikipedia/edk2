@@ -4,13 +4,7 @@
 
   Copyright (c) 2017, AMD Incorporated. All rights reserved.<BR>
 
-  This program and the accompanying materials are licensed and made available
-  under the terms and conditions of the BSD License which accompanies this
-  distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -26,19 +20,17 @@
 #include <Uefi/UefiBaseType.h>
 
 STATIC BOOLEAN mSevStatus = FALSE;
+STATIC BOOLEAN mSevEsStatus = FALSE;
 STATIC BOOLEAN mSevStatusChecked = FALSE;
 
 /**
+  Reads and sets the status of SEV features.
 
-  Returns a boolean to indicate whether SEV is enabled
-
-  @retval TRUE           SEV is enabled
-  @retval FALSE          SEV is not enabled
   **/
 STATIC
-BOOLEAN
+VOID
 EFIAPI
-InternalMemEncryptSevIsEnabled (
+InternalMemEncryptSevStatus (
   VOID
   )
 {
@@ -62,16 +54,42 @@ InternalMemEncryptSevIsEnabled (
       //
       Msr.Uint32 = AsmReadMsr32 (MSR_SEV_STATUS);
       if (Msr.Bits.SevBit) {
-        return TRUE;
+        mSevStatus = TRUE;
+      }
+
+      //
+      // Check MSR_0xC0010131 Bit 1 (Sev-Es Enabled)
+      //
+      if (Msr.Bits.SevEsBit) {
+        mSevEsStatus = TRUE;
       }
     }
   }
 
-  return FALSE;
+  mSevStatusChecked = TRUE;
 }
 
 /**
-  Returns a boolean to indicate whether SEV is enabled
+  Returns a boolean to indicate whether SEV-ES is enabled.
+
+  @retval TRUE           SEV-ES is enabled
+  @retval FALSE          SEV-ES is not enabled
+**/
+BOOLEAN
+EFIAPI
+MemEncryptSevEsIsEnabled (
+  VOID
+  )
+{
+  if (!mSevStatusChecked) {
+    InternalMemEncryptSevStatus ();
+  }
+
+  return mSevEsStatus;
+}
+
+/**
+  Returns a boolean to indicate whether SEV is enabled.
 
   @retval TRUE           SEV is enabled
   @retval FALSE          SEV is not enabled
@@ -82,12 +100,9 @@ MemEncryptSevIsEnabled (
   VOID
   )
 {
-  if (mSevStatusChecked) {
-    return mSevStatus;
+  if (!mSevStatusChecked) {
+    InternalMemEncryptSevStatus ();
   }
-
-  mSevStatus = InternalMemEncryptSevIsEnabled();
-  mSevStatusChecked = TRUE;
 
   return mSevStatus;
 }

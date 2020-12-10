@@ -2,13 +2,7 @@
   Guid & data structure used for Capsule process result variables
 
   Copyright (c) 2015 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
   @par Revision Reference:
   GUIDs defined in UEFI 2.4 spec.
@@ -99,6 +93,35 @@ typedef struct {
   ///
 } EFI_CAPSULE_RESULT_VARIABLE_FMP;
 
+typedef struct {
+
+  ///
+  /// Version of this structure, currently 0x00000001
+  ///
+  UINT32    Version;
+
+  ///
+  /// The unique identifier of the capsule whose processing result is recorded in this variable.
+  /// 0x00000000 - 0xEFFFFFFF - Implementation Reserved
+  /// 0xF0000000 - 0xFFFFFFFF - Specification Reserved
+  /// #define REDFISH_DEFINED_JSON_SCHEMA 0xF000000
+  /// The JSON payload shall conform to a Redfish-defined JSON schema, see DMTF-Redfish
+  /// Specification.
+  ///
+  UINT32 CapsuleId;
+
+  ///
+  /// The length of Resp in bytes.
+  ///
+  UINT32 RespLength;
+
+  ///
+  /// Variable length buffer containing the replied JSON payload to the caller who delivered JSON
+  /// capsule to system. The definition of the JSON schema used in the replied payload is beyond
+  /// the scope of this specification.
+  ///
+  UINT8 Resp[];
+ } EFI_CAPSULE_RESULT_VARIABLE_JSON;
 
 extern EFI_GUID gEfiCapsuleReportGuid;
 

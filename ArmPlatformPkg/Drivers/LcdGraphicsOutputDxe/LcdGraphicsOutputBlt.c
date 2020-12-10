@@ -1,13 +1,7 @@
 /** @file
 
- Copyright (c) 2011-2013, ARM Ltd. All rights reserved.<BR>
- This program and the accompanying materials
- are licensed and made available under the terms and conditions of the BSD License
- which accompanies this distribution.  The full text of the license may be found at
- http://opensource.org/licenses/bsd-license.php
-
- THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
- WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+ Copyright (c) 2011 - 2020, Arm Limited. All rights reserved.<BR>
+ SPDX-License-Identifier: BSD-2-Clause-Patent
 
  **/
 
@@ -42,7 +36,7 @@ VideoCopyNoHorizontalOverlap (
   IN UINTN          Height
 )
 {
-  EFI_STATUS    Status = EFI_SUCCESS;
+  EFI_STATUS    Status;
   UINTN         SourceLine;
   UINTN         DestinationLine;
   UINTN         WidthInBytes;
@@ -50,6 +44,8 @@ VideoCopyNoHorizontalOverlap (
   INTN          Step;
   VOID          *SourceAddr;
   VOID          *DestinationAddr;
+
+  Status = EFI_SUCCESS;
 
   if( DestinationY <= SourceY ) {
     // scrolling up (or horizontally but without overlap)
@@ -134,7 +130,7 @@ VideoCopyHorizontalOverlap (
   IN UINTN          Height
 )
 {
-  EFI_STATUS      Status = EFI_SUCCESS;
+  EFI_STATUS      Status;
 
   UINT32 *PixelBuffer32bit;
   UINT32 *SourcePixel32bit;
@@ -148,6 +144,8 @@ VideoCopyHorizontalOverlap (
   UINT32          DestinationPixelY;
   UINTN           SizeIn32Bits;
   UINTN           SizeIn16Bits;
+
+  Status = EFI_SUCCESS;
 
   switch (BitsPerPixel) {
 

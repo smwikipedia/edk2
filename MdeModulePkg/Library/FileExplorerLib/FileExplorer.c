@@ -1,14 +1,8 @@
 /** @file
 File explorer related functions.
 
-Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials are licensed and made available under
-the terms and conditions of the BSD License that accompanies this distribution.
-The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php.
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+Copyright (c) 2004 - 2019, Intel Corporation. All rights reserved.<BR>
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -827,13 +821,9 @@ LibFindFileSystem (
       if (Info == NULL) {
         VolumeLabel = L"NO FILE SYSTEM INFO";
       } else {
-        if (Info->VolumeLabel == NULL) {
-          VolumeLabel = L"NULL VOLUME LABEL";
-        } else {
-          VolumeLabel = Info->VolumeLabel;
-          if (*VolumeLabel == 0x0000) {
-            VolumeLabel = L"NO VOLUME LABEL";
-          }
+        VolumeLabel = Info->VolumeLabel;
+        if (*VolumeLabel == 0x0000) {
+          VolumeLabel = L"NO VOLUME LABEL";
         }
       }
       MenuEntry->DisplayString  = AllocateZeroPool (MAX_CHAR);
@@ -1649,6 +1639,7 @@ FileExplorerLibDestructor (
     ASSERT_EFI_ERROR (Status);
 
     HiiRemovePackages (gFileExplorerPrivate.FeHiiHandle);
+    gFileExplorerPrivate.FeDriverHandle = NULL;
   }
 
   FreePool (gHiiVendorDevicePath);

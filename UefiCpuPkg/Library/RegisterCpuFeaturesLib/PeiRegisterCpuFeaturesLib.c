@@ -1,14 +1,8 @@
 /** @file
   CPU Register Table Library functions.
 
-  Copyright (c) 2016, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  Copyright (c) 2016 - 2020, Intel Corporation. All rights reserved.<BR>
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -17,7 +11,8 @@
 #include <Library/HobLib.h>
 #include <Library/PeiServicesLib.h>
 #include <Library/PeiServicesTablePointerLib.h>
-#include <Ppi/MpServices.h>
+#include <Ppi/MpServices2.h>
+
 #include "RegisterCpuFeatures.h"
 
 #define REGISTER_CPU_FEATURES_GUID \
@@ -68,46 +63,53 @@ GetCpuFeaturesData (
 /**
   Worker function to get MP PPI service pointer.
 
-  @return PEI PPI service pointer.
+  @return MP_SERVICES variable.
 **/
-EFI_PEI_MP_SERVICES_PPI *
-GetMpPpi (
+MP_SERVICES
+GetMpService (
   VOID
   )
 {
   EFI_STATUS                 Status;
-  EFI_PEI_MP_SERVICES_PPI    *CpuMpPpi;
+  MP_SERVICES                MpService;
 
   //
-  // Get MP Services Protocol
+  // Get MP Services2 Ppi
   //
   Status = PeiServicesLocatePpi (
-             &gEfiPeiMpServicesPpiGuid,
+             &gEdkiiPeiMpServices2PpiGuid,
              0,
              NULL,
-             (VOID **)&CpuMpPpi
+             (VOID **)&MpService.Ppi
              );
   ASSERT_EFI_ERROR (Status);
-  return CpuMpPpi;
+  return MpService;
 }
 
 /**
   Worker function to return processor index.
 
+  @param  CpuFeaturesData    Cpu Feature Data structure.
+
   @return  The processor index.
 **/
 UINTN
 GetProcessorIndex (
-  VOID
+  IN CPU_FEATURES_DATA        *CpuFeaturesData
   )
 {
   EFI_STATUS                 Status;
-  EFI_PEI_MP_SERVICES_PPI    *CpuMpPpi;
+  EDKII_PEI_MP_SERVICES2_PPI *CpuMp2Ppi;
   UINTN                      ProcessorIndex;
 
-  CpuMpPpi = GetMpPpi ();
+  CpuMp2Ppi = CpuFeaturesData->MpService.Ppi;
 
-  Status = CpuMpPpi->WhoAmI(GetPeiServicesTablePointer (), CpuMpPpi, &ProcessorIndex);
+  //
+  // For two reasons which use NULL for WhoAmI:
+  // 1. This function will be called by APs and AP should not use PeiServices Table
+  // 2. Check WhoAmI implementation, this parameter will not be used.
+  //
+  Status = CpuMp2Ppi->WhoAmI (CpuMp2Ppi, &ProcessorIndex);
   ASSERT_EFI_ERROR (Status);
   return ProcessorIndex;
 }
@@ -128,13 +130,15 @@ GetProcessorInformation (
   OUT EFI_PROCESSOR_INFORMATION        *ProcessorInfoBuffer
   )
 {
-  EFI_PEI_MP_SERVICES_PPI    *CpuMpPpi;
+  EDKII_PEI_MP_SERVICES2_PPI *CpuMp2Ppi;
   EFI_STATUS                 Status;
+  CPU_FEATURES_DATA          *CpuFeaturesData;
 
-  CpuMpPpi = GetMpPpi ();
-  Status = CpuMpPpi->GetProcessorInfo (
-               GetPeiServicesTablePointer(),
-               CpuMpPpi,
+  CpuFeaturesData = GetCpuFeaturesData ();
+  CpuMp2Ppi = CpuFeaturesData->MpService.Ppi;
+
+  Status = CpuMp2Ppi->GetProcessorInfo (
+               CpuMp2Ppi,
                ProcessorNumber,
                ProcessorInfoBuffer
                );
@@ -146,36 +150,62 @@ GetProcessorInformation (
 
   @param[in]  Procedure               A pointer to the function to be run on
                                       enabled APs of the system.
+  @param[in]  MpEvent                 The Event used to sync the result.
+
 **/
 VOID
-StartupAPsWorker (
-  IN  EFI_AP_PROCEDURE                 Procedure
+StartupAllAPsWorker (
+  IN  EFI_AP_PROCEDURE                 Procedure,
+  IN  EFI_EVENT                        MpEvent
   )
 {
   EFI_STATUS                           Status;
-  EFI_PEI_MP_SERVICES_PPI              *CpuMpPpi;
+  EDKII_PEI_MP_SERVICES2_PPI           *CpuMp2Ppi;
+  CPU_FEATURES_DATA                    *CpuFeaturesData;
 
-  //
-  // Get MP Services Protocol
-  //
-  Status = PeiServicesLocatePpi (
-             &gEfiPeiMpServicesPpiGuid,
-             0,
-             NULL,
-             (VOID **)&CpuMpPpi
-             );
-  ASSERT_EFI_ERROR (Status);
+  CpuFeaturesData = GetCpuFeaturesData ();
+  CpuMp2Ppi = CpuFeaturesData->MpService.Ppi;
 
   //
   // Wakeup all APs for data collection.
   //
-  Status = CpuMpPpi->StartupAllAPs (
-                 GetPeiServicesTablePointer (),
-                 CpuMpPpi,
+  Status = CpuMp2Ppi->StartupAllAPs (
+                 CpuMp2Ppi,
                  Procedure,
                  FALSE,
                  0,
-                 NULL
+                 CpuFeaturesData
+                 );
+  ASSERT_EFI_ERROR (Status);
+}
+
+/**
+  Worker function to execute a caller provided function on all enabled CPUs.
+
+  @param[in]  Procedure               A pointer to the function to be run on
+                                      enabled CPUs of the system.
+
+**/
+VOID
+StartupAllCPUsWorker (
+  IN  EFI_AP_PROCEDURE                 Procedure
+  )
+{
+  EFI_STATUS                           Status;
+  EDKII_PEI_MP_SERVICES2_PPI           *CpuMp2Ppi;
+  CPU_FEATURES_DATA                    *CpuFeaturesData;
+
+  CpuFeaturesData = GetCpuFeaturesData ();
+
+  //
+  // Get MP Services2 Ppi
+  //
+  CpuMp2Ppi = CpuFeaturesData->MpService.Ppi;
+  Status = CpuMp2Ppi->StartupAllCPUs (
+                 CpuMp2Ppi,
+                 Procedure,
+                 0,
+                 CpuFeaturesData
                  );
   ASSERT_EFI_ERROR (Status);
 }
@@ -191,25 +221,17 @@ SwitchNewBsp (
   )
 {
   EFI_STATUS                           Status;
-  EFI_PEI_MP_SERVICES_PPI              *CpuMpPpi;
+  EDKII_PEI_MP_SERVICES2_PPI           *CpuMp2Ppi;
+  CPU_FEATURES_DATA                    *CpuFeaturesData;
 
-  //
-  // Get MP Services Protocol
-  //
-  Status = PeiServicesLocatePpi (
-             &gEfiPeiMpServicesPpiGuid,
-             0,
-             NULL,
-             (VOID **)&CpuMpPpi
-             );
-  ASSERT_EFI_ERROR (Status);
+  CpuFeaturesData = GetCpuFeaturesData ();
+  CpuMp2Ppi = CpuFeaturesData->MpService.Ppi;
 
   //
   // Wakeup all APs for data collection.
   //
-  Status = CpuMpPpi->SwitchBSP (
-                 GetPeiServicesTablePointer (),
-                 CpuMpPpi,
+  Status = CpuMp2Ppi->SwitchBSP (
+                 CpuMp2Ppi,
                  ProcessorNumber,
                  TRUE
                  );
@@ -233,27 +255,55 @@ GetNumberOfProcessor (
   )
 {
   EFI_STATUS                 Status;
-  EFI_PEI_MP_SERVICES_PPI    *CpuMpPpi;
+  EDKII_PEI_MP_SERVICES2_PPI *CpuMp2Ppi;
+  CPU_FEATURES_DATA          *CpuFeaturesData;
 
-  //
-  // Get MP Services Protocol
-  //
-  Status = PeiServicesLocatePpi (
-             &gEfiPeiMpServicesPpiGuid,
-             0,
-             NULL,
-             (VOID **)&CpuMpPpi
-             );
-  ASSERT_EFI_ERROR (Status);
+  CpuFeaturesData = GetCpuFeaturesData ();
+  CpuMp2Ppi = CpuFeaturesData->MpService.Ppi;
 
   //
   // Get the number of CPUs
   //
-  Status = CpuMpPpi->GetNumberOfProcessors (
-                         GetPeiServicesTablePointer (),
-                         CpuMpPpi,
+  Status = CpuMp2Ppi->GetNumberOfProcessors (
+                         CpuMp2Ppi,
                          NumberOfCpus,
                          NumberOfEnabledProcessors
                          );
   ASSERT_EFI_ERROR (Status);
 }
+
+/**
+  Performs CPU features Initialization.
+
+  This service will invoke MP service to perform CPU features
+  initialization on BSP/APs per user configuration.
+
+  @note This service could be called by BSP only.
+**/
+VOID
+EFIAPI
+CpuFeaturesInitialize (
+  VOID
+  )
+{
+  CPU_FEATURES_DATA          *CpuFeaturesData;
+  UINTN                      OldBspNumber;
+
+  CpuFeaturesData = GetCpuFeaturesData ();
+
+  OldBspNumber = GetProcessorIndex (CpuFeaturesData);
+  CpuFeaturesData->BspNumber = OldBspNumber;
+
+  //
+  // Start to program register for all CPUs.
+  //
+  StartupAllCPUsWorker (SetProcessorRegister);
+
+  //
+  // Switch to new BSP if required
+  //
+  if (CpuFeaturesData->BspNumber != OldBspNumber) {
+    SwitchNewBsp (CpuFeaturesData->BspNumber);
+  }
+}
+

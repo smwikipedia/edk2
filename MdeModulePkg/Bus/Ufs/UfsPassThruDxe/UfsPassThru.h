@@ -1,13 +1,8 @@
 /** @file
 
-  Copyright (c) 2014 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  Copyright (c) 2014 - 2019, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) Microsoft Corporation.<BR>
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -19,6 +14,7 @@
 #include <Protocol/ScsiPassThruExt.h>
 #include <Protocol/UfsDeviceConfig.h>
 #include <Protocol/UfsHostController.h>
+#include <Protocol/UfsHostControllerPlatform.h>
 
 #include <Library/DebugLib.h>
 #include <Library/UefiDriverEntryPoint.h>
@@ -51,14 +47,6 @@ typedef struct {
   UINT16   Rsvd:4;
 } UFS_EXPOSED_LUNS;
 
-//
-// Iterate through the double linked list. This is delete-safe.
-// Do not touch NextEntry
-//
-#define EFI_LIST_FOR_EACH_SAFE(Entry, NextEntry, ListHead)            \
-  for(Entry = (ListHead)->ForwardLink, NextEntry = Entry->ForwardLink;\
-      Entry != (ListHead); Entry = NextEntry, NextEntry = Entry->ForwardLink)
-
 typedef struct _UFS_PASS_THRU_PRIVATE_DATA {
   UINT32                              Signature;
   EFI_HANDLE                          Handle;
@@ -67,7 +55,8 @@ typedef struct _UFS_PASS_THRU_PRIVATE_DATA {
   EFI_UFS_DEVICE_CONFIG_PROTOCOL      UfsDevConfig;
   EDKII_UFS_HOST_CONTROLLER_PROTOCOL  *UfsHostController;
   UINTN                               UfsHcBase;
-  UINT32                              Capabilities;
+  EDKII_UFS_HC_INFO                   UfsHcInfo;
+  EDKII_UFS_HC_DRIVER_INTERFACE       UfsHcDriverInterface;
 
   UINT8                               TaskTag;
 
@@ -98,6 +87,8 @@ typedef struct {
   UINT32                                        CmdDescSize;
   VOID                                          *CmdDescHost;
   VOID                                          *CmdDescMapping;
+  VOID                                          *AlignedDataBuf;
+  UINTN                                         AlignedDataBufSize;
   VOID                                          *DataBufMapping;
 
   EFI_EXT_SCSI_PASS_THRU_SCSI_REQUEST_PACKET    *Packet;
@@ -126,6 +117,13 @@ typedef struct {
   CR (a, \
       UFS_PASS_THRU_PRIVATE_DATA, \
       UfsDevConfig, \
+      UFS_PASS_THRU_SIG \
+      )
+
+#define UFS_PASS_THRU_PRIVATE_DATA_FROM_DRIVER_INTF(a) \
+  CR (a, \
+      UFS_PASS_THRU_PRIVATE_DATA, \
+      UfsHcDriverInterface, \
       UFS_PASS_THRU_SIG \
       )
 
@@ -962,8 +960,39 @@ UfsRwUfsAttribute (
   IN OUT UINT32                        *AttrSize
   );
 
+/**
+  Execute UIC command.
+
+  @param[in]      This        Pointer to driver interface produced by the UFS controller.
+  @param[in, out] UicCommand  Descriptor of the command that will be executed.
+
+  @retval EFI_SUCCESS            Command executed successfully.
+  @retval EFI_INVALID_PARAMETER  This or UicCommand is NULL.
+  @retval Others                 Command failed to execute.
+**/
+EFI_STATUS
+EFIAPI
+UfsHcDriverInterfaceExecUicCommand (
+  IN     EDKII_UFS_HC_DRIVER_INTERFACE  *This,
+  IN OUT EDKII_UIC_COMMAND              *UicCommand
+  );
+
+/**
+  Initializes UfsHcInfo field in private data.
+
+  @param[in] Private  Pointer to host controller private data.
+
+  @retval EFI_SUCCESS  UfsHcInfo initialized successfully.
+  @retval Others       Failed to initalize UfsHcInfo.
+**/
+EFI_STATUS
+GetUfsHcInfo (
+  IN UFS_PASS_THRU_PRIVATE_DATA  *Private
+  );
+
 extern EFI_COMPONENT_NAME_PROTOCOL  gUfsPassThruComponentName;
 extern EFI_COMPONENT_NAME2_PROTOCOL gUfsPassThruComponentName2;
 extern EFI_DRIVER_BINDING_PROTOCOL  gUfsPassThruDriverBinding;
+extern EDKII_UFS_HC_PLATFORM_PROTOCOL  *mUfsHcPlatform;
 
 #endif

@@ -3,13 +3,7 @@
 *
 *  Copyright (c) 2016, Linaro Ltd. All rights reserved.<BR>
 *
-*  This program and the accompanying materials are
-*  licensed and made available under the terms and conditions of the BSD License
-*  which accompanies this distribution.  The full text of the license may be found at
-*  http://opensource.org/licenses/bsd-license.php
-*
-*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+*  SPDX-License-Identifier: BSD-2-Clause-Patent
 *
 **/
 
@@ -79,6 +73,33 @@ SetNodeProperty (
 }
 
 STATIC
+BOOLEAN
+IsNodeEnabled (
+  INT32                       Node
+  )
+{
+  CONST CHAR8   *NodeStatus;
+  INT32         Len;
+
+  //
+  // A missing status property implies 'ok' so ignore any errors that
+  // may occur here. If the status property is present, check whether
+  // it is set to 'ok' or 'okay', anything else is treated as 'disabled'.
+  //
+  NodeStatus = fdt_getprop (mDeviceTreeBase, Node, "status", &Len);
+  if (NodeStatus == NULL) {
+    return TRUE;
+  }
+  if (Len >= 5 && AsciiStrCmp (NodeStatus, "okay") == 0) {
+    return TRUE;
+  }
+  if (Len >= 3 && AsciiStrCmp (NodeStatus, "ok") == 0) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+STATIC
 EFI_STATUS
 EFIAPI
 FindNextCompatibleNode (
@@ -99,6 +120,10 @@ FindNextCompatibleNode (
     Next = fdt_next_node (mDeviceTreeBase, Prev, NULL);
     if (Next < 0) {
       break;
+    }
+
+    if (!IsNodeEnabled (Next)) {
+      continue;
     }
 
     Type = fdt_getprop (mDeviceTreeBase, Next, "compatible", &Len);
@@ -210,7 +235,6 @@ FindNextMemoryNodeReg (
 {
   INT32          Prev, Next;
   CONST CHAR8    *DeviceType;
-  CONST CHAR8    *NodeStatus;
   INT32          Len;
   EFI_STATUS     Status;
 
@@ -223,10 +247,8 @@ FindNextMemoryNodeReg (
       break;
     }
 
-    NodeStatus = fdt_getprop (mDeviceTreeBase, Next, "status", &Len);
-    if (NodeStatus != NULL && AsciiStrCmp (NodeStatus, "okay") != 0) {
-      DEBUG ((DEBUG_WARN, "%a: ignoring memory node with status \"%a\"\n",
-        __FUNCTION__, NodeStatus));
+    if (!IsNodeEnabled (Next)) {
+      DEBUG ((DEBUG_WARN, "%a: ignoring disabled memory node\n", __FUNCTION__));
       continue;
     }
 

@@ -1,13 +1,7 @@
 ;------------------------------------------------------------------------------
 ;
 ; Copyright (c) 2006, Intel Corporation. All rights reserved.<BR>
-; This program and the accompanying materials
-; are licensed and made available under the terms and conditions of the BSD License
-; which accompanies this distribution.  The full text of the license may be found at
-; http://opensource.org/licenses/bsd-license.php.
-;
-; THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-; WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+; SPDX-License-Identifier: BSD-2-Clause-Patent
 ;
 ; Module Name:
 ;
@@ -43,17 +37,28 @@ ASM_PFX(InternalMemSetMem64):
     add     rdx, 8
     dec     rcx
 .0:
-    shr     rcx, 1
+    push    rbx
+    mov     rbx, rcx
+    and     rbx, 7
+    shr     rcx, 3
     jz      @SetQwords
     movlhps xmm0, xmm0
 .1:
     movntdq [rdx], xmm0
-    lea     rdx, [rdx + 16]
+    movntdq [rdx + 16], xmm0
+    movntdq [rdx + 32], xmm0
+    movntdq [rdx + 48], xmm0
+    lea     rdx, [rdx + 64]
     loop    .1
     mfence
 @SetQwords:
-    jnc     .2
-    mov     [rdx], r8
+    push    rdi
+    mov     rcx, rbx
+    mov     rax, r8
+    mov     rdi, rdx
+    rep     stosq
+    pop     rdi
 .2:
+    pop rbx
     ret
 

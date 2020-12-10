@@ -2,13 +2,7 @@
   Main file for NULL named library for debug1 profile shell command functions.
 
   Copyright (c) 2010 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -16,7 +10,7 @@
 #include <Library/BcfgCommandLib.h>
 
 STATIC CONST CHAR16 mFileName[] = L"Debug1Commands";
-EFI_HANDLE gShellDebug1HiiHandle = NULL;
+EFI_HII_HANDLE gShellDebug1HiiHandle = NULL;
 
 /**
   Gets the debug file name.  This will be used if HII is not working.
@@ -113,34 +107,6 @@ UefiShellDebug1CommandsLibDestructor (
   return (EFI_SUCCESS);
 }
 
-/**
-  Convert a Unicode character to upper case only if
-  it maps to a valid small-case ASCII character.
-
-  This internal function only deal with Unicode character
-  which maps to a valid small-case ASCII character, i.e.
-  L'a' to L'z'. For other Unicode character, the input character
-  is returned directly.
-
-  @param  Char  The character to convert.
-
-  @retval LowerCharacter   If the Char is with range L'a' to L'z'.
-  @retval Unchanged        Otherwise.
-
-
-  //Stolen from MdePkg Baselib
-**/
-CHAR16
-CharToUpper (
-  IN      CHAR16                    Char
-  )
-{
-  if (Char >= L'a' && Char <= L'z') {
-    return (CHAR16) (Char - (L'a' - L'A'));
-  }
-
-  return Char;
-}
 
 /**
   Function returns a system configuration table that is stored in the

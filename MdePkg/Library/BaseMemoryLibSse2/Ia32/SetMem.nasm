@@ -1,13 +1,7 @@
 ;------------------------------------------------------------------------------
 ;
 ; Copyright (c) 2006, Intel Corporation. All rights reserved.<BR>
-; This program and the accompanying materials
-; are licensed and made available under the terms and conditions of the BSD License
-; which accompanies this distribution.  The full text of the license may be found at
-; http://opensource.org/licenses/bsd-license.php.
-;
-; THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-; WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+; SPDX-License-Identifier: BSD-2-Clause-Patent
 ;
 ; Module Name:
 ;
@@ -40,7 +34,7 @@ ASM_PFX(InternalMemSetMem):
     mov     al, [esp + 16]              ; al <- Value
     xor     ecx, ecx
     sub     ecx, edi
-    and     ecx, 15                     ; ecx + edi aligns on 16-byte boundary
+    and     ecx, 63                     ; ecx + edi aligns on 16-byte boundary
     jz      .0
     cmp     ecx, edx
     cmova   ecx, edx
@@ -48,8 +42,8 @@ ASM_PFX(InternalMemSetMem):
     rep     stosb
 .0:
     mov     ecx, edx
-    and     edx, 15
-    shr     ecx, 4                      ; ecx <- # of DQwords to set
+    and     edx, 63
+    shr     ecx, 6                      ; ecx <- # of DQwords to set
     jz      @SetBytes
     mov     ah, al                      ; ax <- Value | (Value << 8)
     add     esp, -16
@@ -59,7 +53,10 @@ ASM_PFX(InternalMemSetMem):
     movlhps xmm0, xmm0                  ; xmm0 <- Value repeats 16 times
 .1:
     movntdq [edi], xmm0                 ; edi should be 16-byte aligned
-    add     edi, 16
+    movntdq [edi + 16], xmm0
+    movntdq [edi + 32], xmm0
+    movntdq [edi + 48], xmm0
+    add     edi, 64
     loop    .1
     mfence
     movdqu  xmm0, [esp]                 ; restore xmm0

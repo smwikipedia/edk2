@@ -2,13 +2,7 @@
   iSCSI DHCP4 related configuration routines.
 
 Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -128,7 +122,7 @@ IScsiDhcpExtractRootPath (
   //
   if ((!NET_IS_DIGIT (*(Field->Str))) && (*(Field->Str) != '[')) {
     ConfigNvData->DnsMode = TRUE;
-    if (Field->Len > sizeof (ConfigNvData->TargetUrl)) {
+    if ((Field->Len + 2) > sizeof (ConfigNvData->TargetUrl)) {
       return EFI_INVALID_PARAMETER;
     }
     CopyMem (&ConfigNvData->TargetUrl, Field->Str, Field->Len);
@@ -199,7 +193,7 @@ ON_EXIT:
 }
 
 /**
-  The callback function registerd to the DHCP4 instance that is used to select
+  The callback function registered to the DHCP4 instance that is used to select
   the qualified DHCP OFFER.
 
   @param[in]  This         The DHCP4 protocol.
@@ -466,7 +460,7 @@ IScsiDoDhcp (
   // the active state, If the DHCP4 D.O.R.A started by IP4 auto
   // configuration and has not been completed, the Dhcp4 state machine
   // will not be in the right state for the iSCSI to start a new round D.O.R.A.
-  // So, we need to switch it's policy to static.
+  // So, we need to switch its policy to static.
   //
   Status = gBS->HandleProtocol (Controller, &gEfiIp4Config2ProtocolGuid, (VOID **) &Ip4Config2);
   if (!EFI_ERROR (Status)) {

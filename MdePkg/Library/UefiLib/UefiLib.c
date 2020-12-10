@@ -6,13 +6,7 @@
   and print messages on the console output and standard error devices.
 
   Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php.
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -647,6 +641,36 @@ EfiTestChildHandle (
 }
 
 /**
+  This function checks the supported languages list for a target language,
+  This only supports RFC 4646 Languages.
+
+  @param  SupportedLanguages  The supported languages
+  @param  TargetLanguage      The target language
+
+  @retval Returns EFI_SUCCESS if the language is supported,
+          EFI_UNSUPPORTED otherwise
+**/
+EFI_STATUS
+EFIAPI
+IsLanguageSupported (
+  IN CONST CHAR8 *SupportedLanguages,
+  IN CONST CHAR8 *TargetLanguage
+  )
+{
+  UINTN Index;
+  while (*SupportedLanguages != 0) {
+    for (Index = 0; SupportedLanguages[Index] != 0 && SupportedLanguages[Index] != ';'; Index++);
+    if ((AsciiStrnCmp(SupportedLanguages, TargetLanguage, Index) == 0) && (TargetLanguage[Index] == 0)) {
+      return EFI_SUCCESS;
+    }
+    SupportedLanguages += Index;
+    for (; *SupportedLanguages != 0 && *SupportedLanguages == ';'; SupportedLanguages++);
+  }
+
+  return EFI_UNSUPPORTED;
+}
+
+/**
   This function looks up a Unicode string in UnicodeStringTable.
 
   If Language is a member of SupportedLanguages and a Unicode string is found in
@@ -806,23 +830,18 @@ LookupUnicodeString2 (
   // Make sure Language is in the set of Supported Languages
   //
   Found = FALSE;
-  while (*SupportedLanguages != 0) {
-    if (Iso639Language) {
+  if (Iso639Language) {
+    while (*SupportedLanguages != 0) {
       if (CompareIso639LanguageCode (Language, SupportedLanguages)) {
         Found = TRUE;
         break;
       }
       SupportedLanguages += 3;
-    } else {
-      for (Index = 0; SupportedLanguages[Index] != 0 && SupportedLanguages[Index] != ';'; Index++);
-      if ((AsciiStrnCmp(SupportedLanguages, Language, Index) == 0) && (Language[Index] == 0)) {
-        Found = TRUE;
-        break;
-      }
-      SupportedLanguages += Index;
-      for (; *SupportedLanguages != 0 && *SupportedLanguages == ';'; SupportedLanguages++);
     }
+  } else {
+    Found = !IsLanguageSupported(Language, SupportedLanguages);
   }
+
 
   //
   // If Language is not a member of SupportedLanguages, then return EFI_UNSUPPORTED
@@ -1105,24 +1124,17 @@ AddUnicodeString2 (
   // Make sure Language is a member of SupportedLanguages
   //
   Found = FALSE;
-  while (*SupportedLanguages != 0) {
-    if (Iso639Language) {
+  if (Iso639Language) {
+    while (*SupportedLanguages != 0) {
       if (CompareIso639LanguageCode (Language, SupportedLanguages)) {
         Found = TRUE;
         break;
       }
       SupportedLanguages += 3;
-    } else {
-      for (Index = 0; SupportedLanguages[Index] != 0 && SupportedLanguages[Index] != ';'; Index++);
-      if (AsciiStrnCmp(SupportedLanguages, Language, Index) == 0) {
-        Found = TRUE;
-        break;
-      }
-      SupportedLanguages += Index;
-      for (; *SupportedLanguages != 0 && *SupportedLanguages == ';'; SupportedLanguages++);
     }
+  } else {
+    Found = !IsLanguageSupported(Language, SupportedLanguages);
   }
-
   //
   // If Language is not a member of SupportedLanguages, then return EFI_UNSUPPORTED
   //
@@ -1273,98 +1285,6 @@ FreeUnicodeStringTable (
   return EFI_SUCCESS;
 }
 
-#ifndef DISABLE_NEW_DEPRECATED_INTERFACES
-
-/**
-  [ATTENTION] This function will be deprecated for security reason.
-
-  Returns a pointer to an allocated buffer that contains the contents of a
-  variable retrieved through the UEFI Runtime Service GetVariable().  The
-  returned buffer is allocated using AllocatePool().  The caller is responsible
-  for freeing this buffer with FreePool().
-
-  If Name is NULL, then ASSERT().
-  If Guid is NULL, then ASSERT().
-
-  @param[in]  Name  The pointer to a Null-terminated Unicode string.
-  @param[in]  Guid  The pointer to an EFI_GUID structure
-
-  @retval NULL   The variable could not be retrieved.
-  @retval NULL   There are not enough resources available for the variable contents.
-  @retval Other  A pointer to allocated buffer containing the variable contents.
-
-**/
-VOID *
-EFIAPI
-GetVariable (
-  IN CONST CHAR16    *Name,
-  IN CONST EFI_GUID  *Guid
-  )
-{
-  EFI_STATUS  Status;
-  UINTN       Size;
-  VOID        *Value;
-
-  ASSERT (Name != NULL);
-  ASSERT (Guid != NULL);
-
-  //
-  // Try to get the variable size.
-  //
-  Value = NULL;
-  Size = 0;
-  Status = gRT->GetVariable ((CHAR16 *) Name, (EFI_GUID *) Guid, NULL, &Size, Value);
-  if (Status != EFI_BUFFER_TOO_SMALL) {
-    return NULL;
-  }
-
-  //
-  // Allocate buffer to get the variable.
-  //
-  Value = AllocatePool (Size);
-  if (Value == NULL) {
-    return NULL;
-  }
-
-  //
-  // Get the variable data.
-  //
-  Status = gRT->GetVariable ((CHAR16 *) Name, (EFI_GUID *) Guid, NULL, &Size, Value);
-  if (EFI_ERROR (Status)) {
-    FreePool(Value);
-    return NULL;
-  }
-
-  return Value;
-}
-
-/**
-  [ATTENTION] This function will be deprecated for security reason.
-
-  Returns a pointer to an allocated buffer that contains the contents of a
-  variable retrieved through the UEFI Runtime Service GetVariable().  This
-  function always uses the EFI_GLOBAL_VARIABLE GUID to retrieve variables.
-  The returned buffer is allocated using AllocatePool().  The caller is
-  responsible for freeing this buffer with FreePool().
-
-  If Name is NULL, then ASSERT().
-
-  @param[in]  Name  The pointer to a Null-terminated Unicode string.
-
-  @retval NULL   The variable could not be retrieved.
-  @retval NULL   There are not enough resources available for the variable contents.
-  @retval Other  A pointer to allocated buffer containing the variable contents.
-
-**/
-VOID *
-EFIAPI
-GetEfiGlobalVariable (
-  IN CONST CHAR16  *Name
-  )
-{
-  return GetVariable (Name, &gEfiGlobalVariableGuid);
-}
-#endif
 
 /**
   Returns the status whether get the variable success. The function retrieves
@@ -1428,6 +1348,87 @@ GetVariable2 (
   //
   Status = gRT->GetVariable ((CHAR16 *) Name, (EFI_GUID *) Guid, NULL, &BufferSize, *Value);
   if (EFI_ERROR (Status)) {
+    FreePool(*Value);
+    *Value = NULL;
+  }
+
+  if (Size != NULL) {
+    *Size = BufferSize;
+  }
+
+  return Status;
+}
+
+/** Return the attributes of the variable.
+
+  Returns the status whether get the variable success. The function retrieves
+  variable  through the UEFI Runtime Service GetVariable().  The
+  returned buffer is allocated using AllocatePool().  The caller is responsible
+  for freeing this buffer with FreePool().  The attributes are returned if
+  the caller provides a valid Attribute parameter.
+
+  If Name  is NULL, then ASSERT().
+  If Guid  is NULL, then ASSERT().
+  If Value is NULL, then ASSERT().
+
+  @param[in]  Name  The pointer to a Null-terminated Unicode string.
+  @param[in]  Guid  The pointer to an EFI_GUID structure
+  @param[out] Value The buffer point saved the variable info.
+  @param[out] Size  The buffer size of the variable.
+  @param[out] Attr  The pointer to the variable attributes as found in var store
+
+  @retval EFI_OUT_OF_RESOURCES      Allocate buffer failed.
+  @retval EFI_SUCCESS               Find the specified variable.
+  @retval Others Errors             Return errors from call to gRT->GetVariable.
+
+**/
+EFI_STATUS
+EFIAPI
+GetVariable3(
+  IN CONST CHAR16       *Name,
+  IN CONST EFI_GUID     *Guid,
+     OUT VOID           **Value,
+     OUT UINTN          *Size OPTIONAL,
+     OUT UINT32         *Attr OPTIONAL
+  )
+{
+  EFI_STATUS  Status;
+  UINTN       BufferSize;
+
+  ASSERT(Name != NULL && Guid != NULL && Value != NULL);
+
+  //
+  // Try to get the variable size.
+  //
+  BufferSize = 0;
+  *Value = NULL;
+  if (Size != NULL) {
+    *Size = 0;
+  }
+
+  if (Attr != NULL) {
+    *Attr = 0;
+  }
+
+  Status = gRT->GetVariable((CHAR16 *)Name, (EFI_GUID *)Guid, Attr, &BufferSize, *Value);
+  if (Status != EFI_BUFFER_TOO_SMALL) {
+    return Status;
+  }
+
+  //
+  // Allocate buffer to get the variable.
+  //
+  *Value = AllocatePool(BufferSize);
+  ASSERT(*Value != NULL);
+  if (*Value == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  //
+  // Get the variable data.
+  //
+  Status = gRT->GetVariable((CHAR16 *)Name, (EFI_GUID *)Guid, Attr, &BufferSize, *Value);
+  if (EFI_ERROR(Status)) {
     FreePool(*Value);
     *Value = NULL;
   }

@@ -2,13 +2,7 @@
   The application to show the Boot Manager Menu.
 
 Copyright (c) 2011 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -457,20 +451,10 @@ BootMenuSelectItem (
   }
 
   //
-  // Print want to select item
-  //
-  FirstItem = BootMenuData->ScrollBarControl.FirstItem;
-  gST->ConOut->SetAttribute (gST->ConOut, EFI_WHITE | EFI_BACKGROUND_BLACK);
-  String = HiiGetString (gStringPackHandle, BootMenuData->PtrTokens[WantSelectItem], NULL);
-  PrintCol = StartCol  + 1;
-  PrintRow = StartRow + TITLE_TOKEN_COUNT + 2 + WantSelectItem - FirstItem;
-  PrintStringAt (PrintCol, PrintRow, String);
-  FreePool (String);
-
-  //
   // if Want Select and selected item isn't the same and doesn't re-draw selectable
   // items, clear select item
   //
+  FirstItem = BootMenuData->ScrollBarControl.FirstItem;
   if (WantSelectItem != BootMenuData->SelectItem && !RePaintItems) {
     gST->ConOut->SetAttribute (gST->ConOut, EFI_WHITE | EFI_BACKGROUND_BLUE);
     String = HiiGetString (gStringPackHandle, BootMenuData->PtrTokens[BootMenuData->SelectItem], NULL);
@@ -479,6 +463,16 @@ BootMenuSelectItem (
     PrintStringAt (PrintCol, PrintRow, String);
     FreePool (String);
   }
+
+  //
+  // Print want to select item
+  //
+  gST->ConOut->SetAttribute (gST->ConOut, EFI_WHITE | EFI_BACKGROUND_BLACK);
+  String = HiiGetString (gStringPackHandle, BootMenuData->PtrTokens[WantSelectItem], NULL);
+  PrintCol = StartCol  + 1;
+  PrintRow = StartRow + TITLE_TOKEN_COUNT + 2 + WantSelectItem - FirstItem;
+  PrintStringAt (PrintCol, PrintRow, String);
+  FreePool (String);
 
   gST->ConOut->SetAttribute (gST->ConOut, SavedAttribute);
   BootMenuData->SelectItem = WantSelectItem;

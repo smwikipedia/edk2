@@ -8,13 +8,7 @@
   Copyright (c) 2011 - 2013, Intel Corporation. All rights reserved.<BR>
   Copyright (c) 2017, Advanced Micro Devices. All rights reserved.<BR>
 
-  This program and the accompanying materials are licensed and made available
-  under the terms and conditions of the BSD License which accompanies this
-  distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS, WITHOUT
-  WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
 
 #include <Library/BaseLib.h>
@@ -44,18 +38,18 @@ QemuFwCfgIsAvailable (
 
   QemuFwCfgSelectItem (QemuFwCfgItemSignature);
   Signature = QemuFwCfgRead32 ();
-  DEBUG ((EFI_D_INFO, "FW CFG Signature: 0x%x\n", Signature));
+  DEBUG ((DEBUG_INFO, "FW CFG Signature: 0x%x\n", Signature));
   QemuFwCfgSelectItem (QemuFwCfgItemInterfaceVersion);
   Revision = QemuFwCfgRead32 ();
-  DEBUG ((EFI_D_INFO, "FW CFG Revision: 0x%x\n", Revision));
+  DEBUG ((DEBUG_INFO, "FW CFG Revision: 0x%x\n", Revision));
   if ((Signature != SIGNATURE_32 ('Q', 'E', 'M', 'U')) ||
       (Revision < 1)
      ) {
-    DEBUG ((EFI_D_INFO, "QemuFwCfg interface not supported.\n"));
+    DEBUG ((DEBUG_INFO, "QemuFwCfg interface not supported.\n"));
     return FALSE;
   }
 
-  DEBUG ((EFI_D_INFO, "QemuFwCfg interface is supported.\n"));
+  DEBUG ((DEBUG_INFO, "QemuFwCfg interface is supported.\n"));
   return TRUE;
 }
 

@@ -3,18 +3,16 @@
 
 Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
 Copyright (c) 2017, AMD Inc. All rights reserved.<BR>
+Copyright (c) 2018 - 2020, ARM Limited. All rights reserved.<BR>
 
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
 #include "PcRtc.h"
+
+extern UINTN  mRtcIndexRegister;
+extern UINTN  mRtcTargetRegister;
 
 //
 // Days of month.
@@ -60,38 +58,132 @@ IsWithinOneDay (
   );
 
 /**
-  Read RTC content through its registers.
+  Read RTC content through its registers using IO access.
 
-  @param  Address  Address offset of RTC. It is recommended to use macros such as
-                   RTC_ADDRESS_SECONDS.
+  @param  Address   Address offset of RTC. It is recommended to use
+                    macros such as RTC_ADDRESS_SECONDS.
 
   @return The data of UINT8 type read from RTC.
 **/
+STATIC
 UINT8
-RtcRead (
-  IN  UINT8 Address
+IoRtcRead (
+  IN  UINTN Address
   )
 {
-  IoWrite8 (PcdGet8 (PcdRtcIndexRegister), (UINT8) (Address | (UINT8) (IoRead8 (PcdGet8 (PcdRtcIndexRegister)) & 0x80)));
+  IoWrite8 (
+    PcdGet8 (PcdRtcIndexRegister),
+    (UINT8)(Address | (UINT8)(IoRead8 (PcdGet8 (PcdRtcIndexRegister)) & 0x80))
+    );
   return IoRead8 (PcdGet8 (PcdRtcTargetRegister));
+}
+
+/**
+  Write RTC through its registers  using IO access.
+
+  @param  Address   Address offset of RTC. It is recommended to use
+                    macros such as RTC_ADDRESS_SECONDS.
+  @param  Data      The content you want to write into RTC.
+
+**/
+STATIC
+VOID
+IoRtcWrite (
+  IN  UINTN   Address,
+  IN  UINT8   Data
+  )
+{
+  IoWrite8 (
+    PcdGet8 (PcdRtcIndexRegister),
+    (UINT8)(Address | (UINT8)(IoRead8 (PcdGet8 (PcdRtcIndexRegister)) & 0x80))
+    );
+  IoWrite8 (PcdGet8 (PcdRtcTargetRegister), Data);
+}
+
+/**
+  Read RTC content through its registers using MMIO access.
+
+  @param  Address   Address offset of RTC. It is recommended to use
+                    macros such as RTC_ADDRESS_SECONDS.
+
+  @return The data of UINT8 type read from RTC.
+**/
+STATIC
+UINT8
+MmioRtcRead (
+  IN  UINTN Address
+  )
+{
+  MmioWrite8 (
+    mRtcIndexRegister,
+    (UINT8)(Address | (UINT8)(MmioRead8 (mRtcIndexRegister) & 0x80))
+    );
+  return MmioRead8 (mRtcTargetRegister);
+}
+
+/**
+  Write RTC through its registers using MMIO access.
+
+  @param  Address   Address offset of RTC. It is recommended to use
+                    macros such as RTC_ADDRESS_SECONDS.
+  @param  Data      The content you want to write into RTC.
+
+**/
+STATIC
+VOID
+MmioRtcWrite (
+  IN  UINTN   Address,
+  IN  UINT8   Data
+  )
+{
+  MmioWrite8 (
+    mRtcIndexRegister,
+    (UINT8)(Address | (UINT8)(MmioRead8 (mRtcIndexRegister) & 0x80))
+    );
+  MmioWrite8 (mRtcTargetRegister, Data);
+}
+
+/**
+  Read RTC content through its registers.
+
+  @param  Address   Address offset of RTC. It is recommended to use
+                    macros such as RTC_ADDRESS_SECONDS.
+
+  @return The data of UINT8 type read from RTC.
+**/
+STATIC
+UINT8
+RtcRead (
+  IN  UINTN Address
+  )
+{
+  if (FeaturePcdGet (PcdRtcUseMmio)) {
+    return MmioRtcRead (Address);
+  }
+
+  return IoRtcRead (Address);
 }
 
 /**
   Write RTC through its registers.
 
-  @param  Address  Address offset of RTC. It is recommended to use macros such as
-                   RTC_ADDRESS_SECONDS.
-  @param  Data     The content you want to write into RTC.
+  @param  Address   Address offset of RTC. It is recommended to use
+                    macros such as RTC_ADDRESS_SECONDS.
+  @param  Data      The content you want to write into RTC.
 
 **/
+STATIC
 VOID
 RtcWrite (
-  IN  UINT8   Address,
+  IN  UINTN   Address,
   IN  UINT8   Data
   )
 {
-  IoWrite8 (PcdGet8 (PcdRtcIndexRegister), (UINT8) (Address | (UINT8) (IoRead8 (PcdGet8 (PcdRtcIndexRegister)) & 0x80)));
-  IoWrite8 (PcdGet8 (PcdRtcTargetRegister), Data);
+  if (FeaturePcdGet (PcdRtcUseMmio)) {
+    MmioRtcWrite (Address, Data);
+  } else {
+    IoRtcWrite (Address, Data);
+  }
 }
 
 /**
@@ -1057,9 +1149,9 @@ IsLeapYear (
 }
 
 /**
-  Converts time from EFI_TIME format defined by UEFI spec to RTC's.
+  Converts time from EFI_TIME format defined by UEFI spec to RTC format.
 
-  This function converts time from EFI_TIME format defined by UEFI spec to RTC's.
+  This function converts time from EFI_TIME format defined by UEFI spec to RTC format.
   If data mode of RTC is BCD, then converts EFI_TIME to it.
   If RTC is in 12-hour format, then converts EFI_TIME to it.
 
@@ -1203,49 +1295,6 @@ IsWithinOneDay (
 }
 
 /**
-  This function find ACPI table with the specified signature in RSDT or XSDT.
-
-  @param Sdt              ACPI RSDT or XSDT.
-  @param Signature        ACPI table signature.
-  @param TablePointerSize Size of table pointer: 4 or 8.
-
-  @return ACPI table or NULL if not found.
-**/
-VOID *
-ScanTableInSDT (
-  IN EFI_ACPI_DESCRIPTION_HEADER    *Sdt,
-  IN UINT32                         Signature,
-  IN UINTN                          TablePointerSize
-  )
-{
-  UINTN                          Index;
-  UINTN                          EntryCount;
-  UINTN                          EntryBase;
-  EFI_ACPI_DESCRIPTION_HEADER    *Table;
-
-  EntryCount = (Sdt->Length - sizeof (EFI_ACPI_DESCRIPTION_HEADER)) / TablePointerSize;
-
-  EntryBase = (UINTN) (Sdt + 1);
-  for (Index = 0; Index < EntryCount; Index++) {
-    //
-    // When TablePointerSize is 4 while sizeof (VOID *) is 8, make sure the upper 4 bytes are zero.
-    //
-    Table = 0;
-    CopyMem (&Table, (VOID *) (EntryBase + Index * TablePointerSize), TablePointerSize);
-
-    if (Table == NULL) {
-      continue;
-    }
-
-    if (Table->Signature == Signature) {
-      return Table;
-    }
-  }
-
-  return NULL;
-}
-
-/**
   Get the century RTC address from the ACPI FADT table.
 
   @return  The century RTC address or 0 if not found.
@@ -1255,42 +1304,11 @@ GetCenturyRtcAddress (
   VOID
   )
 {
-  EFI_STATUS                                    Status;
-  EFI_ACPI_2_0_ROOT_SYSTEM_DESCRIPTION_POINTER  *Rsdp;
   EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE     *Fadt;
 
-  Status = EfiGetSystemConfigurationTable (&gEfiAcpiTableGuid, (VOID **) &Rsdp);
-  if (EFI_ERROR (Status)) {
-    Status = EfiGetSystemConfigurationTable (&gEfiAcpi10TableGuid, (VOID **) &Rsdp);
-  }
-
-  if (EFI_ERROR (Status) || (Rsdp == NULL)) {
-    return 0;
-  }
-
-  Fadt = NULL;
-
-  //
-  // Find FADT in XSDT
-  //
-  if (Rsdp->Revision >= EFI_ACPI_2_0_ROOT_SYSTEM_DESCRIPTION_POINTER_REVISION && Rsdp->XsdtAddress != 0) {
-    Fadt = ScanTableInSDT (
-             (EFI_ACPI_DESCRIPTION_HEADER *) (UINTN) Rsdp->XsdtAddress,
-             EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE_SIGNATURE,
-             sizeof (UINTN)
-             );
-  }
-
-  //
-  // Find FADT in RSDT
-  //
-  if (Fadt == NULL && Rsdp->RsdtAddress != 0) {
-    Fadt = ScanTableInSDT (
-             (EFI_ACPI_DESCRIPTION_HEADER *) (UINTN) Rsdp->RsdtAddress,
-             EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE_SIGNATURE,
-             sizeof (UINT32)
-             );
-  }
+  Fadt = (EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE *) EfiLocateFirstAcpiTable (
+                                                         EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE_SIGNATURE
+                                                         );
 
   if ((Fadt != NULL) &&
       (Fadt->Century > RTC_ADDRESS_REGISTER_D) && (Fadt->Century < 0x80)

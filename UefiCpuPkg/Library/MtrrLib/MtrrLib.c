@@ -5,20 +5,14 @@
     Most of services in this library instance are suggested to be invoked by BSP only,
     except for MtrrSetAllMtrrs() which is used to sync BSP's MTRR setting to APs.
 
-  Copyright (c) 2008 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  Copyright (c) 2008 - 2020, Intel Corporation. All rights reserved.<BR>
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
 #include <Uefi.h>
-#include <Register/Cpuid.h>
-#include <Register/Msr.h>
+#include <Register/Intel/Cpuid.h>
+#include <Register/Intel/Msr.h>
 
 #include <Library/MtrrLib.h>
 #include <Library/BaseLib.h>
@@ -449,13 +443,10 @@ MtrrGetVariableMtrrWorker (
 
   for (Index = 0; Index < VariableMtrrCount; Index++) {
     if (MtrrSetting == NULL) {
-      VariableSettings->Mtrr[Index].Mask = AsmReadMsr64 (MSR_IA32_MTRR_PHYSMASK0 + (Index << 1));
-      //
-      // Skip to read the Base MSR when the Mask.V is not set.
-      //
-      if (((MSR_IA32_MTRR_PHYSMASK_REGISTER *)&VariableSettings->Mtrr[Index].Mask)->Bits.V != 0) {
-        VariableSettings->Mtrr[Index].Base = AsmReadMsr64 (MSR_IA32_MTRR_PHYSBASE0 + (Index << 1));
-      }
+      VariableSettings->Mtrr[Index].Base =
+        AsmReadMsr64 (MSR_IA32_MTRR_PHYSBASE0 + (Index << 1));
+      VariableSettings->Mtrr[Index].Mask =
+        AsmReadMsr64 (MSR_IA32_MTRR_PHYSMASK0 + (Index << 1));
     } else {
       VariableSettings->Mtrr[Index].Base = MtrrSetting->Variables.Mtrr[Index].Base;
       VariableSettings->Mtrr[Index].Mask = MtrrSetting->Variables.Mtrr[Index].Mask;
@@ -463,31 +454,6 @@ MtrrGetVariableMtrrWorker (
   }
 
   return  VariableSettings;
-}
-
-/**
-  This function will get the raw value in variable MTRRs
-
-  @param[out]  VariableSettings   A buffer to hold variable MTRRs content.
-
-  @return The VariableSettings input pointer
-
-**/
-MTRR_VARIABLE_SETTINGS*
-EFIAPI
-MtrrGetVariableMtrr (
-  OUT MTRR_VARIABLE_SETTINGS         *VariableSettings
-  )
-{
-  if (!IsMtrrSupported ()) {
-    return VariableSettings;
-  }
-
-  return MtrrGetVariableMtrrWorker (
-           NULL,
-           GetVariableMtrrCountWorker (),
-           VariableSettings
-           );
 }
 
 /**
@@ -2102,8 +2068,8 @@ MtrrLibSetMemoryRanges (
   Set the below-1MB memory attribute to fixed MTRR buffer.
   Modified flag array indicates which fixed MTRR is modified.
 
-  @param [in, out] FixedSettings Fixed MTRR buffer.
-  @param [out]     Modified      Flag array indicating which MTRR is modified.
+  @param [in, out] ClearMasks    The bits (when set) to clear in the fixed MTRR MSR.
+  @param [in, out] OrMasks       The bits to set in the fixed MTRR MSR.
   @param [in]      BaseAddress   Base address.
   @param [in]      Length        Length.
   @param [in]      Type          Memory type.
@@ -2114,8 +2080,8 @@ MtrrLibSetMemoryRanges (
 **/
 RETURN_STATUS
 MtrrLibSetBelow1MBMemoryAttribute (
-  IN OUT MTRR_FIXED_SETTINGS     *FixedSettings,
-  OUT BOOLEAN                    *Modified,
+  IN OUT UINT64                  *ClearMasks,
+  IN OUT UINT64                  *OrMasks,
   IN PHYSICAL_ADDRESS            BaseAddress,
   IN UINT64                      Length,
   IN MTRR_MEMORY_CACHE_TYPE      Type
@@ -2125,19 +2091,8 @@ MtrrLibSetBelow1MBMemoryAttribute (
   UINT32                    MsrIndex;
   UINT64                    ClearMask;
   UINT64                    OrMask;
-  UINT64                    ClearMasks[ARRAY_SIZE (mMtrrLibFixedMtrrTable)];
-  UINT64                    OrMasks[ARRAY_SIZE (mMtrrLibFixedMtrrTable)];
-  BOOLEAN                   LocalModified[ARRAY_SIZE (mMtrrLibFixedMtrrTable)];
 
   ASSERT (BaseAddress < BASE_1MB);
-
-  SetMem (LocalModified, sizeof (LocalModified), FALSE);
-
-  //
-  // (Value & ~0 | 0) still equals to (Value)
-  //
-  SetMem (ClearMasks, sizeof (ClearMasks), 0);
-  SetMem (OrMasks, sizeof (OrMasks), 0);
 
   MsrIndex = (UINT32)-1;
   while ((BaseAddress < BASE_1MB) && (Length != 0)) {
@@ -2145,16 +2100,8 @@ MtrrLibSetBelow1MBMemoryAttribute (
     if (RETURN_ERROR (Status)) {
       return Status;
     }
-    ClearMasks[MsrIndex]    = ClearMask;
-    OrMasks[MsrIndex]       = OrMask;
-    Modified[MsrIndex]      = TRUE;
-    LocalModified[MsrIndex] = TRUE;
-  }
-
-  for (MsrIndex = 0; MsrIndex < ARRAY_SIZE (mMtrrLibFixedMtrrTable); MsrIndex++) {
-    if (LocalModified[MsrIndex]) {
-      FixedSettings->Mtrr[MsrIndex] = (FixedSettings->Mtrr[MsrIndex] & ~ClearMasks[MsrIndex]) | OrMasks[MsrIndex];
-    }
+    ClearMasks[MsrIndex] = ClearMasks[MsrIndex] | ClearMask;
+    OrMasks[MsrIndex]    = (OrMasks[MsrIndex] & ~ClearMask) | OrMask;
   }
   return RETURN_SUCCESS;
 }
@@ -2216,8 +2163,8 @@ MtrrSetMemoryAttributesInMtrrSettings (
   MTRR_MEMORY_RANGE         WorkingVariableMtrr[ARRAY_SIZE (MtrrSetting->Variables.Mtrr)];
   BOOLEAN                   VariableSettingModified[ARRAY_SIZE (MtrrSetting->Variables.Mtrr)];
 
-  BOOLEAN                   FixedSettingsModified[ARRAY_SIZE (mMtrrLibFixedMtrrTable)];
-  MTRR_FIXED_SETTINGS       WorkingFixedSettings;
+  UINT64                    ClearMasks[ARRAY_SIZE (mMtrrLibFixedMtrrTable)];
+  UINT64                    OrMasks[ARRAY_SIZE (mMtrrLibFixedMtrrTable)];
 
   MTRR_CONTEXT              MtrrContext;
   BOOLEAN                   MtrrContextValid;
@@ -2229,10 +2176,6 @@ MtrrSetMemoryAttributesInMtrrSettings (
   // TRUE indicating the accordingly Variable setting needs modificaiton in OriginalVariableMtrr.
   //
   SetMem (VariableSettingModified, ARRAY_SIZE (VariableSettingModified), FALSE);
-  //
-  // TRUE indicating the accordingly Fixed setting needs modification in WorkingFixedSettings.
-  //
-  SetMem (FixedSettingsModified, ARRAY_SIZE (FixedSettingsModified), FALSE);
 
   //
   // TRUE indicating the caller requests to set variable MTRRs.
@@ -2408,14 +2351,17 @@ MtrrSetMemoryAttributesInMtrrSettings (
   //
   // 3. Apply the below-1MB memory attribute settings.
   //
-  ZeroMem (WorkingFixedSettings.Mtrr, sizeof (WorkingFixedSettings.Mtrr));
+  // (Value & ~0 | 0) still equals to (Value)
+  //
+  ZeroMem (ClearMasks, sizeof (ClearMasks));
+  ZeroMem (OrMasks, sizeof (OrMasks));
   for (Index = 0; Index < RangeCount; Index++) {
     if (Ranges[Index].BaseAddress >= BASE_1MB) {
       continue;
     }
 
     Status = MtrrLibSetBelow1MBMemoryAttribute (
-               &WorkingFixedSettings, FixedSettingsModified,
+               ClearMasks, OrMasks,
                Ranges[Index].BaseAddress, Ranges[Index].Length, Ranges[Index].Type
                );
     if (RETURN_ERROR (Status)) {
@@ -2427,19 +2373,16 @@ MtrrSetMemoryAttributesInMtrrSettings (
   //
   // 4. Write fixed MTRRs that have been modified
   //
-  for (Index = 0; Index < ARRAY_SIZE (FixedSettingsModified); Index++) {
-    if (FixedSettingsModified[Index]) {
+  for (Index = 0; Index < ARRAY_SIZE (ClearMasks); Index++) {
+    if (ClearMasks[Index] != 0) {
       if (MtrrSetting != NULL) {
-        MtrrSetting->Fixed.Mtrr[Index] = WorkingFixedSettings.Mtrr[Index];
+        MtrrSetting->Fixed.Mtrr[Index] = (MtrrSetting->Fixed.Mtrr[Index] & ~ClearMasks[Index]) | OrMasks[Index];
       } else {
         if (!MtrrContextValid) {
           MtrrLibPreMtrrChange (&MtrrContext);
           MtrrContextValid = TRUE;
         }
-        AsmWriteMsr64 (
-          mMtrrLibFixedMtrrTable[Index].Msr,
-          WorkingFixedSettings.Mtrr[Index]
-        );
+        AsmMsrAndThenOr64 (mMtrrLibFixedMtrrTable[Index].Msr, ~ClearMasks[Index], OrMasks[Index]);
       }
     }
   }
@@ -2604,44 +2547,15 @@ MtrrSetVariableMtrrWorker (
   ASSERT (VariableMtrrCount <= ARRAY_SIZE (VariableSettings->Mtrr));
 
   for (Index = 0; Index < VariableMtrrCount; Index++) {
-    //
-    // Mask MSR is always updated since caller might need to invalidate the MSR pair.
-    // Base MSR is skipped when Mask.V is not set.
-    //
-    AsmWriteMsr64 (MSR_IA32_MTRR_PHYSMASK0 + (Index << 1), VariableSettings->Mtrr[Index].Mask);
-    if (((MSR_IA32_MTRR_PHYSMASK_REGISTER *)&VariableSettings->Mtrr[Index].Mask)->Bits.V != 0) {
-      AsmWriteMsr64 (MSR_IA32_MTRR_PHYSBASE0 + (Index << 1), VariableSettings->Mtrr[Index].Base);
-    }
+    AsmWriteMsr64 (
+      MSR_IA32_MTRR_PHYSBASE0 + (Index << 1),
+      VariableSettings->Mtrr[Index].Base
+      );
+    AsmWriteMsr64 (
+      MSR_IA32_MTRR_PHYSMASK0 + (Index << 1),
+      VariableSettings->Mtrr[Index].Mask
+      );
   }
-}
-
-
-/**
-  This function sets variable MTRRs
-
-  @param[in]  VariableSettings   A buffer to hold variable MTRRs content.
-
-  @return The pointer of VariableSettings
-
-**/
-MTRR_VARIABLE_SETTINGS*
-EFIAPI
-MtrrSetVariableMtrr (
-  IN MTRR_VARIABLE_SETTINGS         *VariableSettings
-  )
-{
-  MTRR_CONTEXT  MtrrContext;
-
-  if (!IsMtrrSupported ()) {
-    return VariableSettings;
-  }
-
-  MtrrLibPreMtrrChange (&MtrrContext);
-  MtrrSetVariableMtrrWorker (VariableSettings);
-  MtrrLibPostMtrrChange (&MtrrContext);
-  MtrrDebugPrintAllMtrrs ();
-
-  return  VariableSettings;
 }
 
 /**
@@ -2663,35 +2577,6 @@ MtrrSetFixedMtrrWorker (
        FixedSettings->Mtrr[Index]
        );
   }
-}
-
-
-/**
-  This function sets fixed MTRRs
-
-  @param[in]  FixedSettings  A buffer to hold fixed MTRRs content.
-
-  @retval The pointer of FixedSettings
-
-**/
-MTRR_FIXED_SETTINGS*
-EFIAPI
-MtrrSetFixedMtrr (
-  IN MTRR_FIXED_SETTINGS          *FixedSettings
-  )
-{
-  MTRR_CONTEXT  MtrrContext;
-
-  if (!IsMtrrSupported ()) {
-    return FixedSettings;
-  }
-
-  MtrrLibPreMtrrChange (&MtrrContext);
-  MtrrSetFixedMtrrWorker (FixedSettings);
-  MtrrLibPostMtrrChange (&MtrrContext);
-  MtrrDebugPrintAllMtrrs ();
-
-  return FixedSettings;
 }
 
 
@@ -2868,7 +2753,7 @@ MtrrDebugPrintAllMtrrsWorker (
     }
     ContainVariableMtrr = FALSE;
     for (Index = 0; Index < VariableMtrrCount; Index++) {
-      if (((MSR_IA32_MTRR_PHYSMASK_REGISTER *)&Mtrrs->Variables.Mtrr[Index].Mask)->Bits.V == 0) {
+      if ((Mtrrs->Variables.Mtrr[Index].Mask & BIT11) == 0) {
         //
         // If mask is not valid, then do not display range
         //

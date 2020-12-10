@@ -5,13 +5,7 @@
   Copyright (c) 2012 - 2016, ARM Ltd. All rights reserved.<BR>
   Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
 
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -48,7 +42,7 @@ SerialPortInitialize (
   StopBits = (EFI_STOP_BITS_TYPE) FixedPcdGet8 (PcdUartDefaultStopBits);
 
   return PL011UartInitializePort (
-           (UINTN)FixedPcdGet64 (PcdSerialRegisterBase),
+           (UINTN)PcdGet64 (PcdSerialRegisterBase),
            PL011UartClockGetFreq(),
            &BaudRate,
            &ReceiveFifoDepth,
@@ -75,7 +69,7 @@ SerialPortWrite (
   IN UINTN     NumberOfBytes
   )
 {
-  return PL011UartWrite ((UINTN)FixedPcdGet64 (PcdSerialRegisterBase), Buffer, NumberOfBytes);
+  return PL011UartWrite ((UINTN)PcdGet64 (PcdSerialRegisterBase), Buffer, NumberOfBytes);
 }
 
 /**
@@ -95,7 +89,7 @@ SerialPortRead (
   IN  UINTN     NumberOfBytes
 )
 {
-  return PL011UartRead ((UINTN)FixedPcdGet64 (PcdSerialRegisterBase), Buffer, NumberOfBytes);
+  return PL011UartRead ((UINTN)PcdGet64 (PcdSerialRegisterBase), Buffer, NumberOfBytes);
 }
 
 /**
@@ -111,7 +105,7 @@ SerialPortPoll (
   VOID
   )
 {
-  return PL011UartPoll ((UINTN)FixedPcdGet64 (PcdSerialRegisterBase));
+  return PL011UartPoll ((UINTN)PcdGet64 (PcdSerialRegisterBase));
 }
 /**
   Set new attributes to PL011.
@@ -156,7 +150,7 @@ SerialPortSetAttributes (
   )
 {
   return PL011UartInitializePort (
-           (UINTN)FixedPcdGet64 (PcdSerialRegisterBase),
+           (UINTN)PcdGet64 (PcdSerialRegisterBase),
            PL011UartClockGetFreq(),
            BaudRate,
            ReceiveFifoDepth,
@@ -198,7 +192,7 @@ SerialPortSetControl (
   IN UINT32  Control
   )
 {
-  return PL011UartSetControl ((UINTN)FixedPcdGet64 (PcdSerialRegisterBase), Control);
+  return PL011UartSetControl ((UINTN)PcdGet64 (PcdSerialRegisterBase), Control);
 }
 
 /**
@@ -239,5 +233,5 @@ SerialPortGetControl (
   OUT UINT32  *Control
   )
 {
-  return PL011UartGetControl ((UINTN)FixedPcdGet64 (PcdSerialRegisterBase), Control);
+  return PL011UartGetControl ((UINTN)PcdGet64 (PcdSerialRegisterBase), Control);
 }

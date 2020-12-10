@@ -2,17 +2,11 @@
   Implementation for PlatformBootManagerLib library class interfaces.
 
   Copyright (C) 2015-2016, Red Hat, Inc.
-  Copyright (c) 2014, ARM Ltd. All rights reserved.<BR>
+  Copyright (c) 2014 - 2019, ARM Ltd. All rights reserved.<BR>
   Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
   Copyright (c) 2016, Linaro Ltd. All rights reserved.<BR>
 
-  This program and the accompanying materials are licensed and made available
-  under the terms and conditions of the BSD License which accompanies this
-  distribution. The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS, WITHOUT
-  WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -29,11 +23,14 @@
 #include <Protocol/EsrtManagement.h>
 #include <Protocol/GraphicsOutput.h>
 #include <Protocol/LoadedImage.h>
+#include <Protocol/NonDiscoverableDevice.h>
 #include <Protocol/PciIo.h>
 #include <Protocol/PciRootBridgeIo.h>
 #include <Protocol/PlatformBootManager.h>
 #include <Guid/EventGroup.h>
+#include <Guid/NonDiscoverableDevice.h>
 #include <Guid/TtyTerm.h>
+#include <Guid/SerialPortLibVendor.h>
 
 #include "PlatformBm.h"
 
@@ -48,18 +45,13 @@ typedef struct {
 } PLATFORM_SERIAL_CONSOLE;
 #pragma pack ()
 
-#define SERIAL_DXE_FILE_GUID { \
-          0xD3987D4B, 0x971A, 0x435F, \
-          { 0x8C, 0xAF, 0x49, 0x67, 0xEB, 0x62, 0x72, 0x41 } \
-          }
-
 STATIC PLATFORM_SERIAL_CONSOLE mSerialConsole = {
   //
   // VENDOR_DEVICE_PATH SerialDxe
   //
   {
     { HARDWARE_DEVICE_PATH, HW_VENDOR_DP, DP_NODE_LEN (VENDOR_DEVICE_PATH) },
-    SERIAL_DXE_FILE_GUID
+    EDKII_SERIAL_PORT_LIB_VENDOR_GUID
   },
 
   //
@@ -265,6 +257,37 @@ IsPciDisplay (
 
 
 /**
+  This FILTER_FUNCTION checks if a handle corresponds to a non-discoverable
+  USB host controller.
+**/
+STATIC
+BOOLEAN
+EFIAPI
+IsUsbHost (
+  IN EFI_HANDLE   Handle,
+  IN CONST CHAR16 *ReportText
+  )
+{
+  NON_DISCOVERABLE_DEVICE   *Device;
+  EFI_STATUS                Status;
+
+  Status = gBS->HandleProtocol (Handle,
+                  &gEdkiiNonDiscoverableDeviceProtocolGuid,
+                  (VOID **)&Device);
+  if (EFI_ERROR (Status)) {
+    return FALSE;
+  }
+
+  if (CompareGuid (Device->Type, &gEdkiiNonDiscoverableUhciDeviceGuid) ||
+      CompareGuid (Device->Type, &gEdkiiNonDiscoverableEhciDeviceGuid) ||
+      CompareGuid (Device->Type, &gEdkiiNonDiscoverableXhciDeviceGuid)) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+
+/**
   This CALLBACK_FUNCTION attempts to connect a handle non-recursively, asking
   the matching driver to produce all first-level child handles.
 **/
@@ -334,7 +357,8 @@ VOID
 PlatformRegisterFvBootOption (
   CONST EFI_GUID                   *FileGuid,
   CHAR16                           *Description,
-  UINT32                           Attributes
+  UINT32                           Attributes,
+  EFI_INPUT_KEY                    *Key
   )
 {
   EFI_STATUS                        Status;
@@ -386,6 +410,9 @@ PlatformRegisterFvBootOption (
   if (OptionIndex == -1) {
     Status = EfiBootManagerAddLoadOptionVariable (&NewOption, MAX_UINTN);
     ASSERT_EFI_ERROR (Status);
+    Status = EfiBootManagerAddKeyOptionVariable (NULL,
+               (UINT16)NewOption.OptionNumber, 0, Key, NULL);
+    ASSERT (Status == EFI_SUCCESS || Status == EFI_ALREADY_STARTED);
   }
   EfiBootManagerFreeLoadOption (&NewOption);
   EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
@@ -560,6 +587,11 @@ PlatformBootManagerBeforeConsole (
   EfiEventGroupSignal (&gEfiEndOfDxeEventGroupGuid);
 
   //
+  // Dispatch deferred images after EndOfDxe event.
+  //
+  EfiBootManagerDispatchDeferredImages ();
+
+  //
   // Locate the PCI root bridges and make the PCI bus driver connect each,
   // non-recursively. This will produce a number of child handles with PciIo on
   // them.
@@ -580,6 +612,15 @@ PlatformBootManagerBeforeConsole (
   FilterAndProcess (&gEfiGraphicsOutputProtocolGuid, NULL, AddOutput);
 
   //
+  // The core BDS code connects short-form USB device paths by explicitly
+  // looking for handles with PCI I/O installed, and checking the PCI class
+  // code whether it matches the one for a USB host controller. This means
+  // non-discoverable USB host controllers need to have the non-discoverable
+  // PCI driver attached first.
+  //
+  FilterAndProcess (&gEdkiiNonDiscoverableDeviceProtocolGuid, IsUsbHost, Connect);
+
+  //
   // Add the hardcoded short-form USB keyboard device path to ConIn.
   //
   EfiBootManagerUpdateConsoleVariable (ConIn,
@@ -588,7 +629,13 @@ PlatformBootManagerBeforeConsole (
   //
   // Add the hardcoded serial console device path to ConIn, ConOut, ErrOut.
   //
-  ASSERT (FixedPcdGet8 (PcdDefaultTerminalType) == 4);
+  STATIC_ASSERT (FixedPcdGet8 (PcdDefaultTerminalType) == 4,
+    "PcdDefaultTerminalType must be TTYTERM");
+  STATIC_ASSERT (FixedPcdGet8 (PcdUartDefaultParity) != 0,
+    "PcdUartDefaultParity must be set to an actual value, not 'default'");
+  STATIC_ASSERT (FixedPcdGet8 (PcdUartDefaultStopBits) != 0,
+    "PcdUartDefaultStopBits must be set to an actual value, not 'default'");
+
   CopyGuid (&mSerialConsole.TermType.Guid, &gEfiTtyTermGuid);
 
   EfiBootManagerUpdateConsoleVariable (ConIn,
@@ -660,11 +707,11 @@ HandleCapsules (
   Do the platform specific action after the console is ready
   Possible things that can be done in PlatformBootManagerAfterConsole:
   > Console post action:
-    > Dynamically switch output mode from 100x31 to 80x25 for certain senarino
+    > Dynamically switch output mode from 100x31 to 80x25 for certain scenario
     > Signal console ready platform customized event
   > Run diagnostics like memory testing
   > Connect certain devices
-  > Dispatch aditional option roms
+  > Dispatch additional option roms
   > Special boot: e.g.: USB boot, enter UI
 **/
 VOID
@@ -678,6 +725,7 @@ PlatformBootManagerAfterConsole (
   UINTN                         FirmwareVerLength;
   UINTN                         PosX;
   UINTN                         PosY;
+  EFI_INPUT_KEY                 Key;
 
   FirmwareVerLength = StrLen (PcdGetPtr (PcdFirmwareVersionString));
 
@@ -706,11 +754,6 @@ PlatformBootManagerAfterConsole (
   }
 
   //
-  // Connect the rest of the devices.
-  //
-  EfiBootManagerConnectAll ();
-
-  //
   // On ARM, there is currently no reason to use the phased capsule
   // update approach where some capsules are dispatched before EndOfDxe
   // and some are dispatched after. So just handle all capsules here,
@@ -720,16 +763,11 @@ PlatformBootManagerAfterConsole (
   HandleCapsules ();
 
   //
-  // Enumerate all possible boot options.
-  //
-  EfiBootManagerRefreshAllBootOption ();
-
-  //
   // Register UEFI Shell
   //
-  PlatformRegisterFvBootOption (
-    &gUefiShellFileGuid, L"UEFI Shell", LOAD_OPTION_ACTIVE
-    );
+  Key.ScanCode     = SCAN_NULL;
+  Key.UnicodeChar  = L's';
+  PlatformRegisterFvBootOption (&gUefiShellFileGuid, L"UEFI Shell", 0, &Key);
 }
 
 /**
@@ -780,5 +818,49 @@ PlatformBootManagerUnableToBoot (
   VOID
   )
 {
-  return;
+  EFI_STATUS                   Status;
+  EFI_BOOT_MANAGER_LOAD_OPTION BootManagerMenu;
+  EFI_BOOT_MANAGER_LOAD_OPTION *BootOptions;
+  UINTN                        OldBootOptionCount;
+  UINTN                        NewBootOptionCount;
+
+  //
+  // Record the total number of boot configured boot options
+  //
+  BootOptions = EfiBootManagerGetLoadOptions (&OldBootOptionCount,
+                  LoadOptionTypeBoot);
+  EfiBootManagerFreeLoadOptions (BootOptions, OldBootOptionCount);
+
+  //
+  // Connect all devices, and regenerate all boot options
+  //
+  EfiBootManagerConnectAll ();
+  EfiBootManagerRefreshAllBootOption ();
+
+  //
+  // Record the updated number of boot configured boot options
+  //
+  BootOptions = EfiBootManagerGetLoadOptions (&NewBootOptionCount,
+                  LoadOptionTypeBoot);
+  EfiBootManagerFreeLoadOptions (BootOptions, NewBootOptionCount);
+
+  //
+  // If the number of configured boot options has changed, reboot
+  // the system so the new boot options will be taken into account
+  // while executing the ordinary BDS bootflow sequence.
+  //
+  if (NewBootOptionCount != OldBootOptionCount) {
+    DEBUG ((DEBUG_WARN, "%a: rebooting after refreshing all boot options\n",
+      __FUNCTION__));
+    gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
+  }
+
+  Status = EfiBootManagerGetBootManagerMenu (&BootManagerMenu);
+  if (EFI_ERROR (Status)) {
+    return;
+  }
+
+  for (;;) {
+    EfiBootManagerBoot (&BootManagerMenu);
+  }
 }

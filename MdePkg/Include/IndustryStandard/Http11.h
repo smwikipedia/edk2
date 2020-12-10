@@ -4,13 +4,7 @@
   This file contains common HTTP 1.1 definitions from RFC 2616
 
   (C) Copyright 2015-2016 Hewlett Packard Enterprise Development LP<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
 
 #ifndef __HTTP_11_H__
@@ -152,7 +146,11 @@
 /// is a property of the message, not of the entity.
 ///
 #define HTTP_HEADER_TRANSFER_ENCODING  "Transfer-Encoding"
-
+#define HTTP_HEADER_TRANSFER_ENCODING_CHUNKED "chunked"
+#define CHUNKED_TRANSFER_CODING_CR '\r'
+#define CHUNKED_TRANSFER_CODING_LF '\n'
+#define CHUNKED_TRANSFER_CODING_LAST_CHUNK '0'
+#define CHUNKED_TRANSFER_CODING_EXTENSION_SEPARATOR ';'
 
 ///
 /// User Agent Request Header

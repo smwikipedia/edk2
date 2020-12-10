@@ -1,15 +1,9 @@
 /** @file
 *
-*  Copyright (c) 2011, ARM Limited. All rights reserved.
+*  Copyright (c) 2011 - 2020, Arm Limited. All rights reserved.<BR>
 *  Copyright (c) 2016, Linaro Limited. All rights reserved.
 *
-*  This program and the accompanying materials
-*  are licensed and made available under the terms and conditions of the BSD
-*  License which accompanies this distribution.  The full text of the license
-*  may be found at http://opensource.org/licenses/bsd-license.php
-*
-*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+*  SPDX-License-Identifier: BSD-2-Clause-Patent
 *
 **/
 
@@ -177,7 +171,7 @@ Get (
   OUT UINTN             *Value
   )
 {
-  EFI_STATUS    Status = EFI_SUCCESS;
+  EFI_STATUS    Status;
   UINTN         Index, Offset, RegisterBase;
 
   Status = PL061Locate (Gpio, &Index, &Offset, &RegisterBase);
@@ -187,7 +181,7 @@ Get (
     return EFI_INVALID_PARAMETER;
   }
 
-  if (PL061GetPins (RegisterBase, GPIO_PIN_MASK(Offset))) {
+  if (PL061GetPins (RegisterBase, GPIO_PIN_MASK(Offset)) != 0) {
     *Value = 1;
   } else {
     *Value = 0;
@@ -222,7 +216,7 @@ Set (
   IN  EMBEDDED_GPIO_MODE  Mode
   )
 {
-  EFI_STATUS    Status = EFI_SUCCESS;
+  EFI_STATUS    Status;
   UINTN         Index, Offset, RegisterBase;
 
   Status = PL061Locate (Gpio, &Index, &Offset, &RegisterBase);
@@ -284,7 +278,7 @@ GetMode (
   OUT EMBEDDED_GPIO_MODE  *Mode
   )
 {
-  EFI_STATUS    Status = EFI_SUCCESS;
+  EFI_STATUS    Status;
   UINTN         Index, Offset, RegisterBase;
 
   Status = PL061Locate (Gpio, &Index, &Offset, &RegisterBase);
@@ -298,7 +292,7 @@ GetMode (
   // Check if it is input or output
   if (MmioRead8 (RegisterBase + PL061_GPIO_DIR_REG) & GPIO_PIN_MASK(Offset)) {
     // Pin set to output
-    if (PL061GetPins (RegisterBase, GPIO_PIN_MASK(Offset))) {
+    if (PL061GetPins (RegisterBase, GPIO_PIN_MASK(Offset)) != 0) {
       *Mode = GPIO_MODE_OUTPUT_1;
     } else {
       *Mode = GPIO_MODE_OUTPUT_0;

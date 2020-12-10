@@ -3,13 +3,7 @@
 #
 #  Copyright (c) 2007-2018, Intel Corporation. All rights reserved.<BR>
 #
-#  This program and the accompanying materials
-#  are licensed and made available under the terms and conditions of the BSD License
-#  which accompanies this distribution.  The full text of the license may be found at
-#  http://opensource.org/licenses/bsd-license.php
-#
-#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 
 ##
@@ -98,7 +92,7 @@ class Section (SectionClassObject):
     #   @param  FfsInf      FfsInfStatement object that contains this section data
     #   @param  Dict        dictionary contains macro and its value
     #
-    def GenSection(self, OutputPath, GuidName, SecNum, keyStringList, FfsInf = None, Dict = {}):
+    def GenSection(self, OutputPath, GuidName, SecNum, keyStringList, FfsInf = None, Dict = None):
         pass
 
     ## GetFileList() method
@@ -112,7 +106,7 @@ class Section (SectionClassObject):
     #   @param  Dict        dictionary contains macro and its value
     #   @retval tuple       (File list, boolean)
     #
-    def GetFileList(FfsInf, FileType, FileExtension, Dict = {}, IsMakefile=False):
+    def GetFileList(FfsInf, FileType, FileExtension, Dict = None, IsMakefile=False, SectionType=None):
         IsSect = FileType in Section.SectFileType
 
         if FileExtension is not None:
@@ -131,7 +125,7 @@ class Section (SectionClassObject):
                     if File.Type == FileType or (int(FfsInf.PiSpecVersion, 16) >= 0x0001000A \
                                                  and FileType == 'DXE_DPEX' and File.Type == BINARY_FILE_TYPE_SMM_DEPEX) \
                                                  or (FileType == BINARY_FILE_TYPE_TE and File.Type == BINARY_FILE_TYPE_PE32):
-                        if '*' in FfsInf.TargetOverrideList or File.Target == '*' or File.Target in FfsInf.TargetOverrideList or FfsInf.TargetOverrideList == []:
+                        if TAB_STAR in FfsInf.TargetOverrideList or File.Target == TAB_STAR or File.Target in FfsInf.TargetOverrideList or FfsInf.TargetOverrideList == []:
                             FileList.append(FfsInf.PatchEfiFile(File.Path, File.Type))
                         else:
                             GenFdsGlobalVariable.InfLogger ("\nBuild Target \'%s\' of File %s is not in the Scope of %s specified by INF %s in FDF" %(File.Target, File.File, FfsInf.TargetOverrideList, FfsInf.InfFileName))
@@ -140,23 +134,12 @@ class Section (SectionClassObject):
                 else:
                     GenFdsGlobalVariable.InfLogger ("\nCurrent ARCH \'%s\' of File %s is not in the Support Arch Scope of %s specified by INF %s in FDF" %(FfsInf.CurrentArch, File.File, File.Arch, FfsInf.InfFileName))
 
+        elif FileType is None and SectionType == BINARY_FILE_TYPE_RAW:
+            for File in FfsInf.BinFileList:
+                if File.Ext == Suffix:
+                    FileList.append(File.Path)
+
         if (not IsMakefile and Suffix is not None and os.path.exists(FfsInf.EfiOutputPath)) or (IsMakefile and Suffix is not None):
-            #
-            # Get Makefile path and time stamp
-            #
-            MakefileDir = FfsInf.EfiOutputPath[:-len('OUTPUT')]
-            Makefile = os.path.join(MakefileDir, 'Makefile')
-            if not os.path.exists(Makefile):
-                Makefile = os.path.join(MakefileDir, 'GNUmakefile')
-            if os.path.exists(Makefile):
-                # Update to search files with suffix in all sub-dirs.
-                Tuple = os.walk(FfsInf.EfiOutputPath)
-                for Dirpath, Dirnames, Filenames in Tuple:
-                    for F in Filenames:
-                        if os.path.splitext(F)[1] == Suffix:
-                            FullName = os.path.join(Dirpath, F)
-                            if os.path.getmtime(FullName) > os.path.getmtime(Makefile):
-                                FileList.append(FullName)
             if not FileList:
                 SuffixMap = FfsInf.GetFinalTargetSuffixMap()
                 if Suffix in SuffixMap:

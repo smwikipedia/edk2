@@ -2,13 +2,7 @@
 # This file is used to create report for Eot tool
 #
 # Copyright (c) 2008 - 2018, Intel Corporation. All rights reserved.<BR>
-# This program and the accompanying materials
-# are licensed and made available under the terms and conditions of the BSD License
-# which accompanies this distribution.  The full text of the license may be found at
-# http://opensource.org/licenses/bsd-license.php
-#
-# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 
 ##
@@ -77,7 +71,7 @@ class Report(object):
     def GenerateUnDispatchedList(self):
         FvObj = self.FvObj
         EotGlobalData.gOP_UN_DISPATCHED.write('%s\n' % FvObj.Name)
-        for Item in FvObj.UnDispatchedFfsDict:
+        for Item in FvObj.UnDispatchedFfsDict.keys():
             EotGlobalData.gOP_UN_DISPATCHED.write('%s\n' % FvObj.UnDispatchedFfsDict[Item])
 
     ## GenerateFv() method
@@ -112,7 +106,7 @@ class Report(object):
         self.WriteLn(Content)
 
         EotGlobalData.gOP_DISPATCH_ORDER.write('Dispatched:\n')
-        for FfsId in FvObj.OrderedFfsDict:
+        for FfsId in FvObj.OrderedFfsDict.keys():
             self.GenerateFfs(FvObj.OrderedFfsDict[FfsId])
         Content = """     </table></td>
   </tr>"""
@@ -125,7 +119,7 @@ class Report(object):
         self.WriteLn(Content)
 
         EotGlobalData.gOP_DISPATCH_ORDER.write('\nUnDispatched:\n')
-        for FfsId in FvObj.UnDispatchedFfsDict:
+        for FfsId in FvObj.UnDispatchedFfsDict.keys():
             self.GenerateFfs(FvObj.UnDispatchedFfsDict[FfsId])
         Content = """     </table></td>
   </tr>"""
@@ -332,7 +326,7 @@ class Report(object):
                 Content = """            </table></td>
           </tr>"""
                 self.WriteLn(Content)
-            #End of Consumed Ppi/Portocol
+            #End of Consumed Ppi/Protocol
 
             # Find Produced Ppi/Protocol
             SqlCommand = """select ModuleName, ItemType, GuidName, GuidValue, GuidMacro from Report

@@ -1,15 +1,9 @@
 /** @file
-  C based implemention of IA32 interrupt handling only
+  C based implementation of IA32 interrupt handling only
   requiring a minimal assembly interrupt entry point.
 
   Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -42,7 +36,7 @@ struct _GDT_ENTRIES {
   GDT_ENTRY LinearCode;
   GDT_ENTRY SysData;
   GDT_ENTRY SysCode;
-  GDT_ENTRY Spare4;
+  GDT_ENTRY SysCode16;
   GDT_ENTRY LinearData64;
   GDT_ENTRY LinearCode64;
   GDT_ENTRY Spare5;
@@ -55,7 +49,7 @@ struct _GDT_ENTRIES {
 #define LINEAR_CODE_SEL   OFFSET_OF (GDT_ENTRIES, LinearCode)
 #define SYS_DATA_SEL      OFFSET_OF (GDT_ENTRIES, SysData)
 #define SYS_CODE_SEL      OFFSET_OF (GDT_ENTRIES, SysCode)
-#define SPARE4_SEL        OFFSET_OF (GDT_ENTRIES, Spare4)
+#define SYS_CODE16_SEL    OFFSET_OF (GDT_ENTRIES, SysCode16)
 #define LINEAR_DATA64_SEL OFFSET_OF (GDT_ENTRIES, LinearData64)
 #define LINEAR_CODE64_SEL OFFSET_OF (GDT_ENTRIES, LinearCode64)
 #define SPARE5_SEL        OFFSET_OF (GDT_ENTRIES, Spare5)

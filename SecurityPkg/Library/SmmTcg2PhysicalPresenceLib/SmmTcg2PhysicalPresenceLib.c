@@ -10,14 +10,8 @@
   Tcg2PhysicalPresenceLibSubmitRequestToPreOSFunction() and Tcg2PhysicalPresenceLibGetUserConfirmationStatusFunction()
   will receive untrusted input and do validation.
 
-Copyright (c) 2015 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+Copyright (c) 2015 - 2020, Intel Corporation. All rights reserved.<BR>
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -37,6 +31,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 EFI_SMM_VARIABLE_PROTOCOL  *mTcg2PpSmmVariable;
 BOOLEAN                    mIsTcg2PPVerLowerThan_1_3 = FALSE;
+UINT32                     mTcg2PhysicalPresenceFlags;
 
 /**
   The handler for TPM physical presence function:
@@ -168,7 +163,7 @@ Tcg2PhysicalPresenceLibSubmitRequestToPreOSFunctionEx (
                                    &Flags
                                    );
     if (EFI_ERROR (Status)) {
-      Flags.PPFlags = TCG2_BIOS_TPM_MANAGEMENT_FLAG_DEFAULT | TCG2_BIOS_STORAGE_MANAGEMENT_FLAG_DEFAULT;
+      Flags.PPFlags = mTcg2PhysicalPresenceFlags;
     }
     ReturnCode = Tcg2PpVendorLibSubmitRequestToPreOSFunction (*OperationRequest, Flags.PPFlags, *RequestParameter);
   }
@@ -392,7 +387,7 @@ Tcg2PhysicalPresenceLibConstructor (
 {
   EFI_STATUS  Status;
 
-  if (AsciiStrnCmp(PP_INF_VERSION_1_2, (CHAR8 *)PcdGetPtr(PcdTcgPhysicalPresenceInterfaceVer), sizeof(PP_INF_VERSION_1_2) - 1) <= 0) {
+  if (AsciiStrnCmp(PP_INF_VERSION_1_2, (CHAR8 *)PcdGetPtr(PcdTcgPhysicalPresenceInterfaceVer), sizeof(PP_INF_VERSION_1_2) - 1) >= 0) {
     mIsTcg2PPVerLowerThan_1_3 = TRUE;
   }
 
@@ -401,6 +396,8 @@ Tcg2PhysicalPresenceLibConstructor (
   //
   Status = gSmst->SmmLocateProtocol (&gEfiSmmVariableProtocolGuid, NULL, (VOID**)&mTcg2PpSmmVariable);
   ASSERT_EFI_ERROR (Status);
+
+  mTcg2PhysicalPresenceFlags = PcdGet32(PcdTcg2PhysicalPresenceFlags);
 
   return EFI_SUCCESS;
 }

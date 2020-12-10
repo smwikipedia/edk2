@@ -8,14 +8,8 @@
   of size reduction when compiler optimization is disabled. If MDEPKG_NDEBUG is
   defined, then debug and assert related macros wrapped by it are the NULL implementations.
 
-Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials are licensed and made available under
-the terms and conditions of the BSD License that accompanies this distribution.
-The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php.
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+Copyright (c) 2006 - 2020, Intel Corporation. All rights reserved.<BR>
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -98,6 +92,56 @@ DebugPrint (
   IN  UINTN        ErrorLevel,
   IN  CONST CHAR8  *Format,
   ...
+  );
+
+
+/**
+  Prints a debug message to the debug output device if the specified
+  error level is enabled.
+
+  If any bit in ErrorLevel is also set in DebugPrintErrorLevelLib function
+  GetDebugPrintErrorLevel (), then print the message specified by Format and
+  the associated variable argument list to the debug output device.
+
+  If Format is NULL, then ASSERT().
+
+  @param  ErrorLevel    The error level of the debug message.
+  @param  Format        Format string for the debug message to print.
+  @param  VaListMarker  VA_LIST marker for the variable argument list.
+
+**/
+VOID
+EFIAPI
+DebugVPrint (
+  IN  UINTN         ErrorLevel,
+  IN  CONST CHAR8   *Format,
+  IN  VA_LIST       VaListMarker
+  );
+
+
+/**
+  Prints a debug message to the debug output device if the specified
+  error level is enabled.
+  This function use BASE_LIST which would provide a more compatible
+  service than VA_LIST.
+
+  If any bit in ErrorLevel is also set in DebugPrintErrorLevelLib function
+  GetDebugPrintErrorLevel (), then print the message specified by Format and
+  the associated variable argument list to the debug output device.
+
+  If Format is NULL, then ASSERT().
+
+  @param  ErrorLevel      The error level of the debug message.
+  @param  Format          Format string for the debug message to print.
+  @param  BaseListMarker  BASE_LIST marker for the variable argument list.
+
+**/
+VOID
+EFIAPI
+DebugBPrint (
+  IN  UINTN         ErrorLevel,
+  IN  CONST CHAR8   *Format,
+  IN  BASE_LIST     BaseListMarker
   );
 
 
@@ -245,8 +289,38 @@ DebugPrintLevelEnabled (
   @param  Expression  Boolean expression that evaluated to FALSE
 
 **/
-#define _ASSERT(Expression)  DebugAssert (__FILE__, __LINE__, #Expression)
+#if defined (EDKII_UNIT_TEST_FRAMEWORK_ENABLED)
+/**
+  Unit test library replacement for DebugAssert() in DebugLib.
 
+  If FileName is NULL, then a <FileName> string of "(NULL) Filename" is printed.
+  If Description is NULL, then a <Description> string of "(NULL) Description" is printed.
+
+  @param  FileName     The pointer to the name of the source file that generated the assert condition.
+  @param  LineNumber   The line number in the source file that generated the assert condition
+  @param  Description  The pointer to the description of the assert condition.
+
+**/
+VOID
+EFIAPI
+UnitTestDebugAssert (
+  IN CONST CHAR8  *FileName,
+  IN UINTN        LineNumber,
+  IN CONST CHAR8  *Description
+  );
+
+#if defined(__clang__) && defined(__FILE_NAME__)
+#define _ASSERT(Expression)  UnitTestDebugAssert (__FILE_NAME__, __LINE__, #Expression)
+#else
+#define _ASSERT(Expression)  UnitTestDebugAssert (__FILE__, __LINE__, #Expression)
+#endif
+#else
+#if defined(__clang__) && defined(__FILE_NAME__)
+#define _ASSERT(Expression)  DebugAssert (__FILE_NAME__, __LINE__, #Expression)
+#else
+#define _ASSERT(Expression)  DebugAssert (__FILE__, __LINE__, #Expression)
+#endif
+#endif
 
 /**
   Internal worker macro that calls DebugPrint().

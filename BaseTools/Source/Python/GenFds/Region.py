@@ -3,13 +3,7 @@
 #
 #  Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
 #
-#  This program and the accompanying materials
-#  are licensed and made available under the terms and conditions of the BSD License
-#  which accompanies this distribution.  The full text of the license may be found at
-#  http://opensource.org/licenses/bsd-license.php
-#
-#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 
 ##
@@ -20,7 +14,6 @@ from struct import *
 from .GenFdsGlobalVariable import GenFdsGlobalVariable
 from io import BytesIO
 import string
-from CommonDataClass.FdfClass import RegionClassObject
 import Common.LongFilePathOs as os
 from stat import *
 from Common import EdkLogger
@@ -32,15 +25,20 @@ from Common.DataType import BINARY_FILE_TYPE_FV
 ## generate Region
 #
 #
-class Region(RegionClassObject):
+class Region(object):
 
     ## The constructor
     #
     #   @param  self        The object pointer
     #
     def __init__(self):
-        RegionClassObject.__init__(self)
-
+        self.Offset = None       # The begin position of the Region
+        self.Size = None         # The Size of the Region
+        self.PcdOffset = None
+        self.PcdSize = None
+        self.SetVarDict = {}
+        self.RegionType = None
+        self.RegionDataList = []
 
     ## PadBuffer()
     #
@@ -58,8 +56,8 @@ class Region(RegionClassObject):
                 PadByte = pack('B', 0xFF)
             else:
                 PadByte = pack('B', 0)
-            PadData = ''.join(PadByte for i in xrange(0, Size))
-            Buffer.write(PadData)
+            for i in range(0, Size):
+                Buffer.write(PadByte)
 
     ## AddToBuffer()
     #
@@ -71,13 +69,14 @@ class Region(RegionClassObject):
     #   @param  BlockSize   block size of region
     #   @param  BlockNum    How many blocks in region
     #   @param  ErasePolarity      Flash erase polarity
-    #   @param  VtfDict     VTF objects
     #   @param  MacroDict   macro value pair
     #   @retval string      Generated FV file path
     #
 
-    def AddToBuffer(self, Buffer, BaseAddress, BlockSizeList, ErasePolarity, ImageBinDict, vtfDict=None, MacroDict={}, Flag=False):
+    def AddToBuffer(self, Buffer, BaseAddress, BlockSizeList, ErasePolarity, ImageBinDict,  MacroDict=None, Flag=False):
         Size = self.Size
+        if MacroDict is None:
+            MacroDict = {}
         if not Flag:
             GenFdsGlobalVariable.InfLogger('\nGenerate Region at Offset 0x%X' % self.Offset)
             GenFdsGlobalVariable.InfLogger("   Region Size = 0x%X" % Size)
@@ -128,11 +127,11 @@ class Region(RegionClassObject):
                         if self.FvAddress % FvAlignValue != 0:
                             EdkLogger.error("GenFds", GENFDS_ERROR,
                                             "FV (%s) is NOT %s Aligned!" % (FvObj.UiFvName, FvObj.FvAlignment))
-                        FvBuffer = BytesIO('')
+                        FvBuffer = BytesIO()
                         FvBaseAddress = '0x%X' % self.FvAddress
                         BlockSize = None
                         BlockNum = None
-                        FvObj.AddToBuffer(FvBuffer, FvBaseAddress, BlockSize, BlockNum, ErasePolarity, vtfDict, Flag=Flag)
+                        FvObj.AddToBuffer(FvBuffer, FvBaseAddress, BlockSize, BlockNum, ErasePolarity, Flag=Flag)
                         if Flag:
                             continue
 
@@ -297,7 +296,7 @@ class Region(RegionClassObject):
             else:
                 # region ended within current blocks
                 if self.Offset + self.Size <= End:
-                    ExpectedList.append((BlockSize, (RemindingSize + BlockSize - 1) / BlockSize))
+                    ExpectedList.append((BlockSize, (RemindingSize + BlockSize - 1) // BlockSize))
                     break
                 # region not ended yet
                 else:
@@ -306,7 +305,7 @@ class Region(RegionClassObject):
                         UsedBlockNum = BlockNum
                     # region started in middle of current blocks
                     else:
-                        UsedBlockNum = (End - self.Offset) / BlockSize
+                        UsedBlockNum = (End - self.Offset) // BlockSize
                     Start = End
                     ExpectedList.append((BlockSize, UsedBlockNum))
                     RemindingSize -= BlockSize * UsedBlockNum

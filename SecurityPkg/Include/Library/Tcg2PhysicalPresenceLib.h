@@ -2,14 +2,8 @@
   This library is intended to be used by BDS modules.
   This library will execute TPM2 request.
 
-Copyright (c) 2015 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+Copyright (c) 2015 - 2020, Intel Corporation. All rights reserved.<BR>
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -35,8 +29,8 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 //
 // UEFI TCG2 library definition bit of the BIOS Information Flags
 //
-#define TCG2_BIOS_INFORMATION_FLAG_HIERACHY_CONTROL_STORAGE_DISABLE      BIT8
-#define TCG2_BIOS_INFORMATION_FLAG_HIERACHY_CONTROL_ENDORSEMENT_DISABLE  BIT9
+#define TCG2_BIOS_INFORMATION_FLAG_HIERARCHY_CONTROL_STORAGE_DISABLE      BIT8
+#define TCG2_BIOS_INFORMATION_FLAG_HIERARCHY_CONTROL_ENDORSEMENT_DISABLE  BIT9
 
 //
 // UEFI TCG2 library definition bit of the BIOS Storage Management Flags
@@ -44,20 +38,6 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #define TCG2_BIOS_STORAGE_MANAGEMENT_FLAG_PP_REQUIRED_FOR_ENABLE_BLOCK_SID   BIT16
 #define TCG2_BIOS_STORAGE_MANAGEMENT_FLAG_PP_REQUIRED_FOR_DISABLE_BLOCK_SID  BIT17
 #define TCG2_BIOS_STORAGE_MANAGEMENT_FLAG_ENABLE_BLOCK_SID                   BIT18
-
-//
-// Default value
-//
-#define TCG2_BIOS_TPM_MANAGEMENT_FLAG_DEFAULT  (TCG2_BIOS_TPM_MANAGEMENT_FLAG_PP_REQUIRED_FOR_TURN_OFF | \
-                                                TCG2_BIOS_TPM_MANAGEMENT_FLAG_PP_REQUIRED_FOR_CLEAR | \
-                                                TCG2_BIOS_TPM_MANAGEMENT_FLAG_PP_REQUIRED_FOR_CHANGE_EPS | \
-                                                TCG2_BIOS_TPM_MANAGEMENT_FLAG_PP_REQUIRED_FOR_CHANGE_PCRS)
-
-//
-// Default value
-//
-#define TCG2_BIOS_STORAGE_MANAGEMENT_FLAG_DEFAULT (TCG2_BIOS_STORAGE_MANAGEMENT_FLAG_PP_REQUIRED_FOR_ENABLE_BLOCK_SID | \
-                                                   TCG2_BIOS_STORAGE_MANAGEMENT_FLAG_PP_REQUIRED_FOR_DISABLE_BLOCK_SID)
 
 /**
   Check and execute the pending TPM request.

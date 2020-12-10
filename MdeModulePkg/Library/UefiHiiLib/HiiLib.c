@@ -2,13 +2,7 @@
   HII Library implementation that uses DXE protocols and services.
 
   Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -3611,7 +3605,7 @@ HiiCreateCheckBoxOpCode (
   EFI_IFR_CHECKBOX  OpCode;
   UINTN             Position;
 
-  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED))) == 0);
+  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED | EFI_IFR_FLAG_REST_STYLE))) == 0);
 
   ZeroMem (&OpCode, sizeof (OpCode));
   OpCode.Question.QuestionId             = QuestionId;
@@ -3680,7 +3674,7 @@ HiiCreateNumericOpCode (
   UINTN            Position;
   UINTN            Length;
 
-  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED))) == 0);
+  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED | EFI_IFR_FLAG_REST_STYLE))) == 0);
 
   Length  = 0;
   ZeroMem (&OpCode, sizeof (OpCode));
@@ -3779,7 +3773,7 @@ HiiCreateStringOpCode (
   EFI_IFR_STRING  OpCode;
   UINTN           Position;
 
-  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED))) == 0);
+  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED | EFI_IFR_FLAG_REST_STYLE))) == 0);
 
   ZeroMem (&OpCode, sizeof (OpCode));
   OpCode.Question.Header.Prompt          = Prompt;
@@ -3847,7 +3841,7 @@ HiiCreateOneOfOpCode (
   UINTN           Length;
 
   ASSERT (OptionsOpCodeHandle != NULL);
-  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED | EFI_IFR_FLAG_OPTIONS_ONLY))) == 0);
+  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED | EFI_IFR_FLAG_REST_STYLE | EFI_IFR_FLAG_OPTIONS_ONLY))) == 0);
 
   ZeroMem (&OpCode, sizeof (OpCode));
   OpCode.Question.Header.Prompt          = Prompt;
@@ -3918,7 +3912,7 @@ HiiCreateOrderedListOpCode (
   UINTN                 Position;
 
   ASSERT (OptionsOpCodeHandle != NULL);
-  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED | EFI_IFR_FLAG_OPTIONS_ONLY))) == 0);
+  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED | EFI_IFR_FLAG_REST_STYLE | EFI_IFR_FLAG_OPTIONS_ONLY))) == 0);
 
   ZeroMem (&OpCode, sizeof (OpCode));
   OpCode.Question.Header.Prompt          = Prompt;
@@ -4015,7 +4009,7 @@ HiiCreateDateOpCode (
   EFI_IFR_DATE    OpCode;
   UINTN           Position;
 
-  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED))) == 0);
+  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED | EFI_IFR_FLAG_REST_STYLE))) == 0);
   ASSERT ((DateFlags & (~(EFI_QF_DATE_YEAR_SUPPRESS | EFI_QF_DATE_MONTH_SUPPRESS | EFI_QF_DATE_DAY_SUPPRESS | EFI_QF_DATE_STORAGE))) == 0);
 
   ZeroMem (&OpCode, sizeof (OpCode));
@@ -4080,7 +4074,7 @@ HiiCreateTimeOpCode (
   EFI_IFR_TIME    OpCode;
   UINTN           Position;
 
-  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED))) == 0);
+  ASSERT ((QuestionFlags & (~(EFI_IFR_FLAG_READ_ONLY | EFI_IFR_FLAG_CALLBACK | EFI_IFR_FLAG_RESET_REQUIRED | EFI_IFR_FLAG_REST_STYLE))) == 0);
   ASSERT ((TimeFlags & (~(QF_TIME_HOUR_SUPPRESS | QF_TIME_MINUTE_SUPPRESS | QF_TIME_SECOND_SUPPRESS | QF_TIME_STORAGE))) == 0);
 
   ZeroMem (&OpCode, sizeof (OpCode));

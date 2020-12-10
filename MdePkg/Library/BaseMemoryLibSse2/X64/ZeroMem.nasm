@@ -1,13 +1,7 @@
 ;------------------------------------------------------------------------------
 ;
 ; Copyright (c) 2006, Intel Corporation. All rights reserved.<BR>
-; This program and the accompanying materials
-; are licensed and made available under the terms and conditions of the BSD License
-; which accompanies this distribution.  The full text of the license may be found at
-; http://opensource.org/licenses/bsd-license.php.
-;
-; THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-; WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+; SPDX-License-Identifier: BSD-2-Clause-Patent
 ;
 ; Module Name:
 ;
@@ -38,7 +32,7 @@ ASM_PFX(InternalMemZeroMem):
     xor     rcx, rcx
     xor     eax, eax
     sub     rcx, rdi
-    and     rcx, 15
+    and     rcx, 63
     mov     r8, rdi
     jz      .0
     cmp     rcx, rdx
@@ -47,13 +41,16 @@ ASM_PFX(InternalMemZeroMem):
     rep     stosb
 .0:
     mov     rcx, rdx
-    and     edx, 15
-    shr     rcx, 4
+    and     edx, 63
+    shr     rcx, 6
     jz      @ZeroBytes
     pxor    xmm0, xmm0
 .1:
-    movntdq [rdi], xmm0                 ; rdi should be 16-byte aligned
-    add     rdi, 16
+    movntdq [rdi], xmm0
+    movntdq [rdi + 16], xmm0
+    movntdq [rdi + 32], xmm0
+    movntdq [rdi + 48], xmm0
+    add     rdi, 64
     loop    .1
     mfence
 @ZeroBytes:

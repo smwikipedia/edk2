@@ -3,13 +3,7 @@
 
 Copyright (c) 2016 - 2018, Intel Corporation. All rights reserved.<BR>
 
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -144,7 +138,7 @@ TlsEncryptPacket (
     BufferOutSize += ThisMessageSize;
 
     BufferInPtr += TLS_RECORD_HEADER_LENGTH + ThisPlainMessageSize;
-    TempRecordHeader += ThisMessageSize;
+    TempRecordHeader = (TLS_RECORD_HEADER *)((UINT8 *)TempRecordHeader + ThisMessageSize);
   }
 
   FreePool (BufferIn);
@@ -317,7 +311,7 @@ TlsDecryptPacket (
     BufferOutSize += TLS_RECORD_HEADER_LENGTH + ThisPlainMessageSize;
 
     BufferInPtr += TLS_RECORD_HEADER_LENGTH + ThisCipherMessageSize;
-    TempRecordHeader += TLS_RECORD_HEADER_LENGTH + ThisPlainMessageSize;
+    TempRecordHeader = (TLS_RECORD_HEADER *)((UINT8 *)TempRecordHeader + TLS_RECORD_HEADER_LENGTH + ThisPlainMessageSize);
   }
 
   FreePool (BufferIn);

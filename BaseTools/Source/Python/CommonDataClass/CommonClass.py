@@ -2,13 +2,7 @@
 # This file is used to define common items of class object
 #
 # Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
-# This program and the accompanying materials
-# are licensed and made available under the terms and conditions of the BSD License
-# which accompanies this distribution.    The full text of the license may be found at
-# http://opensource.org/licenses/bsd-license.php
-#
-# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 
 
 ## SkuInfoClass
@@ -66,7 +60,7 @@ class SkuInfoClass(object):
     ## Convert the class to a string
     #
     #  Convert each member of the class to string
-    #  Organize to a signle line format string
+    #  Organize to a single line format string
     #
     #  @retval Rtn Formatted String
     #
@@ -80,3 +74,18 @@ class SkuInfoClass(object):
                     'VpdOffset = ' + str(self.VpdOffset) + "," + \
                     'DefaultValue = ' + str(self.DefaultValue) + ","
         return Rtn
+
+    def __deepcopy__(self,memo):
+        new_sku = SkuInfoClass()
+        new_sku.SkuIdName = self.SkuIdName
+        new_sku.SkuId = self.SkuId
+        new_sku.VariableName = self.VariableName
+        new_sku.VariableGuid = self.VariableGuid
+        new_sku.VariableGuidValue = self.VariableGuidValue
+        new_sku.VariableOffset = self.VariableOffset
+        new_sku.HiiDefaultValue = self.HiiDefaultValue
+        new_sku.VariableAttribute = self.VariableAttribute
+        new_sku.DefaultStoreDict = {key:value for key,value in self.DefaultStoreDict.items()}
+        new_sku.VpdOffset = self.VpdOffset
+        new_sku.DefaultValue = self.DefaultValue
+        return new_sku

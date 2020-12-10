@@ -2,15 +2,9 @@
   Serial I/O Port library functions with no library constructor/destructor
 
   Copyright (c) 2008 - 2010, Apple Inc. All rights reserved.<BR>
-  Copyright (c) 2011 - 2016, ARM Ltd. All rights reserved.<BR>
+  Copyright (c) 2011 - 2020, Arm Limited. All rights reserved.<BR>
 
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -84,10 +78,14 @@ PL011UartInitializePort (
   UINT32      Integer;
   UINT32      Fractional;
   UINT32      HardwareFifoDepth;
+  UINT32      UartPid2;
 
-  HardwareFifoDepth = (PL011_UARTPID2_VER (MmioRead32 (UartBase + UARTPID2)) \
-                       > PL011_VER_R1P4) \
-                      ? 32 : 16 ;
+  HardwareFifoDepth = FixedPcdGet16 (PcdUartDefaultReceiveFifoDepth);
+  if (HardwareFifoDepth == 0) {
+    UartPid2 = MmioRead32 (UartBase + UARTPID2);
+    HardwareFifoDepth = (PL011_UARTPID2_VER (UartPid2) > PL011_VER_R1P4) ? 32 : 16;
+  }
+
   // The PL011 supports a buffer of 1, 16 or 32 chars. Therefore we can accept
   // 1 char buffer as the minimum FIFO size. Because everything can be rounded
   // down, there is no maximum FIFO size.
@@ -271,31 +269,31 @@ PL011UartSetControl (
 {
   UINT32  Bits;
 
-  if (Control & (mInvalidControlBits)) {
+  if ((Control & mInvalidControlBits) != 0) {
     return RETURN_UNSUPPORTED;
   }
 
   Bits = MmioRead32 (UartBase + UARTCR);
 
-  if (Control & EFI_SERIAL_REQUEST_TO_SEND) {
+  if ((Control & EFI_SERIAL_REQUEST_TO_SEND) != 0) {
     Bits |= PL011_UARTCR_RTS;
   } else {
     Bits &= ~PL011_UARTCR_RTS;
   }
 
-  if (Control & EFI_SERIAL_DATA_TERMINAL_READY) {
+  if ((Control & EFI_SERIAL_DATA_TERMINAL_READY) != 0) {
     Bits |= PL011_UARTCR_DTR;
   } else {
     Bits &= ~PL011_UARTCR_DTR;
   }
 
-  if (Control & EFI_SERIAL_HARDWARE_LOOPBACK_ENABLE) {
+  if ((Control & EFI_SERIAL_HARDWARE_LOOPBACK_ENABLE) != 0) {
     Bits |= PL011_UARTCR_LBE;
   } else {
     Bits &= ~PL011_UARTCR_LBE;
   }
 
-  if (Control & EFI_SERIAL_HARDWARE_FLOW_CONTROL_ENABLE) {
+  if ((Control & EFI_SERIAL_HARDWARE_FLOW_CONTROL_ENABLE) != 0) {
     Bits |= (PL011_UARTCR_CTSEN | PL011_UARTCR_RTSEN);
   } else {
     Bits &= ~(PL011_UARTCR_CTSEN | PL011_UARTCR_RTSEN);
@@ -327,7 +325,7 @@ PL011UartSetControl (
                          . EFI_SERIAL_OUTPUT_BUFFER_EMPTY : equal to one if the
                            transmit buffer is empty, 0 otherwise.
                          . EFI_SERIAL_HARDWARE_LOOPBACK_ENABLE : equal to one if
-                           the hardware loopback is enabled (the ouput feeds the
+                           the hardware loopback is enabled (the output feeds the
                            receive buffer), 0 otherwise.
                          . EFI_SERIAL_SOFTWARE_LOOPBACK_ENABLE : equal to one if
                            a loopback is accomplished by software, 0 otherwise.

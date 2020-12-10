@@ -3,14 +3,8 @@
 
   Allows BROTLI code to build under UEFI (edk2) build environment
 
-  Copyright (c) 2017 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  Copyright (c) 2017 - 2020, Intel Corporation. All rights reserved.<BR>
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -18,12 +12,9 @@
 #define __BROTLI_DECOMPRESS_INTERNAL_H__
 
 #include <PiPei.h>
-#include <Library/BaseLib.h>
-#include <Library/BaseMemoryLib.h>
-#include <Library/DebugLib.h>
 #include <Library/ExtractGuidedSectionLib.h>
-#include <common/types.h>
-#include <dec/decode.h>
+#include <brotli/c/include/brotli/types.h>
+#include <brotli/c/include/brotli/decode.h>
 
 typedef struct
 {
@@ -35,20 +26,6 @@ typedef struct
 #define BROTLI_INFO_SIZE     8
 #define BROTLI_DECODE_MAX    8
 #define BROTLI_SCRATCH_MAX   16
-
-#define memcpy                      CopyMem
-#define memmove                     CopyMem
-#define memset(dest,ch,count)       SetMem(dest,(UINTN)(count),(UINT8)(ch))
-
-VOID *
-BrDummyMalloc (
-  IN size_t   Size
-  );
-
-VOID
-BrDummyFree (
-  IN VOID *   Ptr
-  );
 
 EFI_STATUS
 EFIAPI

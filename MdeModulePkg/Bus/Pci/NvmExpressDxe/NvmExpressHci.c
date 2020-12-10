@@ -2,14 +2,8 @@
   NvmExpressDxe driver is used to manage non-volatile memory subsystem which follows
   NVM Express specification.
 
-  Copyright (c) 2013 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php.
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  Copyright (c) 2013 - 2019, Intel Corporation. All rights reserved.<BR>
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -379,6 +373,10 @@ NvmeDisableController (
 
   if (Index == 0) {
     Status = EFI_DEVICE_ERROR;
+    REPORT_STATUS_CODE (
+      (EFI_ERROR_CODE | EFI_ERROR_MAJOR),
+      (EFI_IO_BUS_SCSI | EFI_IOB_EC_INTERFACE_ERROR)
+      );
   }
 
   DEBUG ((EFI_D_INFO, "NVMe controller is disabled with status [%r].\n", Status));
@@ -449,6 +447,10 @@ NvmeEnableController (
 
   if (Index == 0) {
     Status = EFI_TIMEOUT;
+    REPORT_STATUS_CODE (
+      (EFI_ERROR_CODE | EFI_ERROR_MAJOR),
+      (EFI_IO_BUS_SCSI | EFI_IOB_EC_INTERFACE_ERROR)
+      );
   }
 
   DEBUG ((EFI_D_INFO, "NVMe controller is enabled with status [%r].\n", Status));
@@ -584,6 +586,7 @@ NvmeCreateIoCompletionQueue (
   UINT16                                   QueueSize;
 
   Status = EFI_SUCCESS;
+  Private->CreateIoQueue = TRUE;
 
   for (Index = 1; Index < NVME_MAX_QUEUES; Index++) {
     ZeroMem (&CommandPacket, sizeof(EFI_NVM_EXPRESS_PASS_THRU_COMMAND_PACKET));
@@ -627,6 +630,8 @@ NvmeCreateIoCompletionQueue (
     }
   }
 
+  Private->CreateIoQueue = FALSE;
+
   return Status;
 }
 
@@ -653,6 +658,7 @@ NvmeCreateIoSubmissionQueue (
   UINT16                                   QueueSize;
 
   Status = EFI_SUCCESS;
+  Private->CreateIoQueue = TRUE;
 
   for (Index = 1; Index < NVME_MAX_QUEUES; Index++) {
     ZeroMem (&CommandPacket, sizeof(EFI_NVM_EXPRESS_PASS_THRU_COMMAND_PACKET));
@@ -697,6 +703,8 @@ NvmeCreateIoSubmissionQueue (
       break;
     }
   }
+
+  Private->CreateIoQueue = FALSE;
 
   return Status;
 }
@@ -958,10 +966,7 @@ NvmeControllerInit (
                                 EfiResetShutdown the data buffer starts with a Null-terminated
                                 string, optionally followed by additional binary data.
                                 The string is a description that the caller may use to further
-                                indicate the reason for the system reset. ResetData is only
-                                valid if ResetStatus is something other than EFI_SUCCESS
-                                unless the ResetType is EfiResetPlatformSpecific
-                                where a minimum amount of ResetData is always required.
+                                indicate the reason for the system reset.
                                 For a ResetType of EfiResetPlatformSpecific the data buffer
                                 also starts with a Null-terminated string that is followed
                                 by an EFI_GUID that describes the specific type of reset to perform.

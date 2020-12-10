@@ -4,13 +4,7 @@
   Copyright (c) 2008 - 2015, Intel Corporation. All rights reserved.<BR>
   (C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
 
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -30,6 +24,9 @@
 #include <Library/PeCoffExtraActionLib.h>
 #include <Library/ExtractGuidedSectionLib.h>
 #include <Library/LocalApicLib.h>
+#include <Library/CpuExceptionHandlerLib.h>
+#include <Register/Amd/Ghcb.h>
+#include <Register/Amd/Msr.h>
 
 #include <Ppi/TemporaryRamSupport.h>
 
@@ -39,6 +36,10 @@ typedef struct _SEC_IDT_TABLE {
   EFI_PEI_SERVICES          *PeiService;
   IA32_IDT_GATE_DESCRIPTOR  IdtTable[SEC_IDT_ENTRY_COUNT];
 } SEC_IDT_TABLE;
+
+typedef struct _SEC_SEV_ES_WORK_AREA {
+  UINT8  SevEsEnabled;
+} SEC_SEV_ES_WORK_AREA;
 
 VOID
 EFIAPI
@@ -57,7 +58,7 @@ TemporaryRamMigration (
 
 //
 //
-//  
+//
 EFI_PEI_TEMPORARY_RAM_SUPPORT_PPI mTemporaryRamSupportPpi = {
   TemporaryRamMigration
 };
@@ -80,7 +81,7 @@ IA32_IDT_GATE_DESCRIPTOR  mIdtEntryTemplate = {
     0x0,                                 // Reserved_0
     IA32_IDT_GATE_TYPE_INTERRUPT_32,     // GateType
     0xffff                               // OffsetHigh
-  }    
+  }
 };
 
 /**
@@ -262,7 +263,7 @@ FindFfsFileAndSection (
   EFI_PHYSICAL_ADDRESS        EndOfFile;
 
   if (Fv->Signature != EFI_FVH_SIGNATURE) {
-    DEBUG ((EFI_D_ERROR, "FV at %p does not have FV header signature\n", Fv));
+    DEBUG ((DEBUG_ERROR, "FV at %p does not have FV header signature\n", Fv));
     return EFI_VOLUME_CORRUPTED;
   }
 
@@ -280,7 +281,7 @@ FindFfsFileAndSection (
     }
 
     File = (EFI_FFS_FILE_HEADER*)(UINTN) CurrentAddress;
-    Size = *(UINT32*) File->Size & 0xffffff;
+    Size = FFS_FILE_SIZE (File);
     if (Size < (sizeof (*File) + sizeof (EFI_COMMON_SECTION_HEADER))) {
       return EFI_VOLUME_CORRUPTED;
     }
@@ -348,7 +349,7 @@ DecompressMemFvs (
              (EFI_COMMON_SECTION_HEADER**) &Section
              );
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "Unable to find GUID defined section\n"));
+    DEBUG ((DEBUG_ERROR, "Unable to find GUID defined section\n"));
     return Status;
   }
 
@@ -359,14 +360,14 @@ DecompressMemFvs (
              &SectionAttribute
              );
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "Unable to GetInfo for GUIDed section\n"));
+    DEBUG ((DEBUG_ERROR, "Unable to GetInfo for GUIDed section\n"));
     return Status;
   }
 
   OutputBuffer = (VOID*) ((UINT8*)(UINTN) PcdGet32 (PcdOvmfDxeMemFvBase) + SIZE_1MB);
   ScratchBuffer = ALIGN_POINTER ((UINT8*) OutputBuffer + OutputBufferSize, SIZE_1MB);
 
-  DEBUG ((EFI_D_VERBOSE, "%a: OutputBuffer@%p+0x%x ScratchBuffer@%p+0x%x "
+  DEBUG ((DEBUG_VERBOSE, "%a: OutputBuffer@%p+0x%x ScratchBuffer@%p+0x%x "
     "PcdOvmfDecompressionScratchEnd=0x%x\n", __FUNCTION__, OutputBuffer,
     OutputBufferSize, ScratchBuffer, ScratchBufferSize,
     PcdGet32 (PcdOvmfDecompressionScratchEnd)));
@@ -380,7 +381,7 @@ DecompressMemFvs (
              &AuthenticationStatus
              );
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "Error during GUID section decode\n"));
+    DEBUG ((DEBUG_ERROR, "Error during GUID section decode\n"));
     return Status;
   }
 
@@ -392,7 +393,7 @@ DecompressMemFvs (
              &FvSection
              );
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "Unable to find PEI FV section\n"));
+    DEBUG ((DEBUG_ERROR, "Unable to find PEI FV section\n"));
     return Status;
   }
 
@@ -404,7 +405,7 @@ DecompressMemFvs (
   CopyMem (PeiMemFv, (VOID*) (FvSection + 1), PcdGet32 (PcdOvmfPeiMemFvSize));
 
   if (PeiMemFv->Signature != EFI_FVH_SIGNATURE) {
-    DEBUG ((EFI_D_ERROR, "Extracted FV at %p does not have FV header signature\n", PeiMemFv));
+    DEBUG ((DEBUG_ERROR, "Extracted FV at %p does not have FV header signature\n", PeiMemFv));
     CpuDeadLoop ();
     return EFI_VOLUME_CORRUPTED;
   }
@@ -417,7 +418,7 @@ DecompressMemFvs (
              &FvSection
              );
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "Unable to find DXE FV section\n"));
+    DEBUG ((DEBUG_ERROR, "Unable to find DXE FV section\n"));
     return Status;
   }
 
@@ -437,7 +438,7 @@ DecompressMemFvs (
   CopyMem (DxeMemFv, (VOID*) ((UINTN)FvSection + FvHeaderSize), PcdGet32 (PcdOvmfDxeMemFvSize));
 
   if (DxeMemFv->Signature != EFI_FVH_SIGNATURE) {
-    DEBUG ((EFI_D_ERROR, "Extracted FV at %p does not have FV header signature\n", DxeMemFv));
+    DEBUG ((DEBUG_ERROR, "Extracted FV at %p does not have FV header signature\n", DxeMemFv));
     CpuDeadLoop ();
     return EFI_VOLUME_CORRUPTED;
   }
@@ -480,7 +481,7 @@ FindPeiCoreImageBaseInFv (
                &Section
                );
     if (EFI_ERROR (Status)) {
-      DEBUG ((EFI_D_ERROR, "Unable to find PEI Core image\n"));
+      DEBUG ((DEBUG_ERROR, "Unable to find PEI Core image\n"));
       return Status;
     }
   }
@@ -560,14 +561,14 @@ FindPeiCoreImageBase (
     // A malicious runtime OS may have injected something into our previously
     // decoded PEI FV, but we don't care about that unless SMM/SMRAM is required.
     //
-    DEBUG ((EFI_D_VERBOSE, "SEC: S3 resume\n"));
+    DEBUG ((DEBUG_VERBOSE, "SEC: S3 resume\n"));
     GetS3ResumePeiFv (BootFv);
   } else {
     //
     // We're either not resuming, or resuming "securely" -- we'll decompress
     // both PEI FV and DXE FV from pristine flash.
     //
-    DEBUG ((EFI_D_VERBOSE, "SEC: %a\n",
+    DEBUG ((DEBUG_VERBOSE, "SEC: %a\n",
       S3Resume ? "S3 resume (with PEI decompression)" : "Normal boot"));
     FindMainFv (BootFv);
 
@@ -611,7 +612,7 @@ FindImageBase (
     }
 
     File = (EFI_FFS_FILE_HEADER*)(UINTN) CurrentAddress;
-    Size = *(UINT32*) File->Size & 0xffffff;
+    Size = FFS_FILE_SIZE (File);
     if (Size < sizeof (*File)) {
       return EFI_NOT_FOUND;
     }
@@ -636,7 +637,7 @@ FindImageBase (
       CurrentAddress = (EndOfSection + 3) & 0xfffffffffffffffcULL;
       Section = (EFI_COMMON_SECTION_HEADER*)(UINTN) CurrentAddress;
 
-      Size = *(UINT32*) Section->Size & 0xffffff;
+      Size = SECTION_SIZE (Section);
       if (Size < sizeof (*Section)) {
         return EFI_NOT_FOUND;
       }
@@ -691,7 +692,7 @@ FindAndReportEntryPoints (
   ASSERT_EFI_ERROR (Status);
 
   FindPeiCoreImageBase (BootFirmwareVolumePtr, &PeiCoreImageBase);
-  
+
   ZeroMem ((VOID *) &ImageContext, sizeof (PE_COFF_LOADER_IMAGE_CONTEXT));
   //
   // Report SEC Core debug information when remote debug is enabled
@@ -716,6 +717,120 @@ FindAndReportEntryPoints (
   }
 
   return;
+}
+
+/**
+  Handle an SEV-ES/GHCB protocol check failure.
+
+  Notify the hypervisor using the VMGEXIT instruction that the SEV-ES guest
+  wishes to be terminated.
+
+  @param[in] ReasonCode  Reason code to provide to the hypervisor for the
+                         termination request.
+
+**/
+STATIC
+VOID
+SevEsProtocolFailure (
+  IN UINT8  ReasonCode
+  )
+{
+  MSR_SEV_ES_GHCB_REGISTER  Msr;
+
+  //
+  // Use the GHCB MSR Protocol to request termination by the hypervisor
+  //
+  Msr.GhcbPhysicalAddress = 0;
+  Msr.GhcbTerminate.Function = GHCB_INFO_TERMINATE_REQUEST;
+  Msr.GhcbTerminate.ReasonCodeSet = GHCB_TERMINATE_GHCB;
+  Msr.GhcbTerminate.ReasonCode = ReasonCode;
+  AsmWriteMsr64 (MSR_SEV_ES_GHCB, Msr.GhcbPhysicalAddress);
+
+  AsmVmgExit ();
+
+  ASSERT (FALSE);
+  CpuDeadLoop ();
+}
+
+/**
+  Validate the SEV-ES/GHCB protocol level.
+
+  Verify that the level of SEV-ES/GHCB protocol supported by the hypervisor
+  and the guest intersect. If they don't intersect, request termination.
+
+**/
+STATIC
+VOID
+SevEsProtocolCheck (
+  VOID
+  )
+{
+  MSR_SEV_ES_GHCB_REGISTER  Msr;
+  GHCB                      *Ghcb;
+
+  //
+  // Use the GHCB MSR Protocol to obtain the GHCB SEV-ES Information for
+  // protocol checking
+  //
+  Msr.GhcbPhysicalAddress = 0;
+  Msr.GhcbInfo.Function = GHCB_INFO_SEV_INFO_GET;
+  AsmWriteMsr64 (MSR_SEV_ES_GHCB, Msr.GhcbPhysicalAddress);
+
+  AsmVmgExit ();
+
+  Msr.GhcbPhysicalAddress = AsmReadMsr64 (MSR_SEV_ES_GHCB);
+
+  if (Msr.GhcbInfo.Function != GHCB_INFO_SEV_INFO) {
+    SevEsProtocolFailure (GHCB_TERMINATE_GHCB_GENERAL);
+  }
+
+  if (Msr.GhcbProtocol.SevEsProtocolMin > Msr.GhcbProtocol.SevEsProtocolMax) {
+    SevEsProtocolFailure (GHCB_TERMINATE_GHCB_PROTOCOL);
+  }
+
+  if ((Msr.GhcbProtocol.SevEsProtocolMin > GHCB_VERSION_MAX) ||
+      (Msr.GhcbProtocol.SevEsProtocolMax < GHCB_VERSION_MIN)) {
+    SevEsProtocolFailure (GHCB_TERMINATE_GHCB_PROTOCOL);
+  }
+
+  //
+  // SEV-ES protocol checking succeeded, set the initial GHCB address
+  //
+  Msr.GhcbPhysicalAddress = FixedPcdGet32 (PcdOvmfSecGhcbBase);
+  AsmWriteMsr64 (MSR_SEV_ES_GHCB, Msr.GhcbPhysicalAddress);
+
+  Ghcb = Msr.Ghcb;
+  SetMem (Ghcb, sizeof (*Ghcb), 0);
+
+  //
+  // Set the version to the maximum that can be supported
+  //
+  Ghcb->ProtocolVersion = MIN (Msr.GhcbProtocol.SevEsProtocolMax, GHCB_VERSION_MAX);
+  Ghcb->GhcbUsage = GHCB_STANDARD_USAGE;
+}
+
+/**
+  Determine if SEV-ES is active.
+
+  During early booting, SEV-ES support code will set a flag to indicate that
+  SEV-ES is enabled. Return the value of this flag as an indicator that SEV-ES
+  is enabled.
+
+  @retval TRUE   SEV-ES is enabled
+  @retval FALSE  SEV-ES is not enabled
+
+**/
+STATIC
+BOOLEAN
+SevEsIsEnabled (
+  VOID
+  )
+{
+  SEC_SEV_ES_WORK_AREA  *SevEsWorkArea;
+
+  SevEsWorkArea = (SEC_SEV_ES_WORK_AREA *) FixedPcdGet32 (PcdSevEsWorkAreaBase);
+
+  return ((SevEsWorkArea != NULL) && (SevEsWorkArea->SevEsEnabled != 0));
 }
 
 VOID
@@ -743,9 +858,64 @@ SecCoreStartupWithStack (
     Table[Index] = 0;
   }
 
+  //
+  // Initialize IDT - Since this is before library constructors are called,
+  // we use a loop rather than CopyMem.
+  //
+  IdtTableInStack.PeiService = NULL;
+  for (Index = 0; Index < SEC_IDT_ENTRY_COUNT; Index ++) {
+    UINT8  *Src;
+    UINT8  *Dst;
+    UINTN  Byte;
+
+    Src = (UINT8 *) &mIdtEntryTemplate;
+    Dst = (UINT8 *) &IdtTableInStack.IdtTable[Index];
+    for (Byte = 0; Byte < sizeof (mIdtEntryTemplate); Byte++) {
+      Dst[Byte] = Src[Byte];
+    }
+  }
+
+  IdtDescriptor.Base  = (UINTN)&IdtTableInStack.IdtTable;
+  IdtDescriptor.Limit = (UINT16)(sizeof (IdtTableInStack.IdtTable) - 1);
+
+  if (SevEsIsEnabled ()) {
+    SevEsProtocolCheck ();
+
+    //
+    // For SEV-ES guests, the exception handler is needed before calling
+    // ProcessLibraryConstructorList() because some of the library constructors
+    // perform some functions that result in #VC exceptions being generated.
+    //
+    // Due to this code executing before library constructors, *all* library
+    // API calls are theoretically interface contract violations. However,
+    // because this is SEC (executing in flash), those constructors cannot
+    // write variables with static storage duration anyway. Furthermore, only
+    // a small, restricted set of APIs, such as AsmWriteIdtr() and
+    // InitializeCpuExceptionHandlers(), are called, where we require that the
+    // underlying library not require constructors to have been invoked and
+    // that the library instance not trigger any #VC exceptions.
+    //
+    AsmWriteIdtr (&IdtDescriptor);
+    InitializeCpuExceptionHandlers (NULL);
+  }
+
   ProcessLibraryConstructorList (NULL, NULL);
 
-  DEBUG ((EFI_D_INFO,
+  if (!SevEsIsEnabled ()) {
+    //
+    // For non SEV-ES guests, just load the IDTR.
+    //
+    AsmWriteIdtr (&IdtDescriptor);
+  } else {
+    //
+    // Under SEV-ES, the hypervisor can't modify CR0 and so can't enable
+    // caching in order to speed up the boot. Enable caching early for
+    // an SEV-ES guest.
+    //
+    AsmEnableCache ();
+  }
+
+  DEBUG ((DEBUG_INFO,
     "SecCoreStartupWithStack(0x%x, 0x%x)\n",
     (UINT32)(UINTN)BootFv,
     (UINT32)(UINTN)TopOfCurrentStack
@@ -756,19 +926,6 @@ SecCoreStartupWithStack (
   // to be compliant with UEFI spec.
   //
   InitializeFloatingPointUnits ();
-
-  //
-  // Initialize IDT
-  //  
-  IdtTableInStack.PeiService = NULL;
-  for (Index = 0; Index < SEC_IDT_ENTRY_COUNT; Index ++) {
-    CopyMem (&IdtTableInStack.IdtTable[Index], &mIdtEntryTemplate, sizeof (mIdtEntryTemplate));
-  }
-
-  IdtDescriptor.Base  = (UINTN)&IdtTableInStack.IdtTable;
-  IdtDescriptor.Limit = (UINT16)(sizeof (IdtTableInStack.IdtTable) - 1);
-
-  AsmWriteIdtr (&IdtDescriptor);
 
 #if defined (MDE_CPU_X64)
   //
@@ -820,13 +977,13 @@ SecCoreStartupWithStack (
   //
   InitializeApicTimer (0, MAX_UINT32, TRUE, 5);
   DisableApicTimerInterrupt ();
-  
+
   //
   // Initialize Debug Agent to support source level debug in SEC/PEI phases before memory ready.
   //
   InitializeDebugAgent (DEBUG_AGENT_INIT_PREMEM_SEC, &SecCoreData, SecStartupPhase2);
 }
-  
+
 /**
   Caller provided function to be invoked at the end of InitializeDebugAgent().
 
@@ -846,9 +1003,9 @@ SecStartupPhase2(
   EFI_SEC_PEI_HAND_OFF        *SecCoreData;
   EFI_FIRMWARE_VOLUME_HEADER  *BootFv;
   EFI_PEI_CORE_ENTRY_POINT    PeiCoreEntryPoint;
-  
+
   SecCoreData = (EFI_SEC_PEI_HAND_OFF *) Context;
-  
+
   //
   // Find PEI Core entry point. It will report SEC and Pei Core debug information if remote debug
   // is enabled.
@@ -862,7 +1019,7 @@ SecStartupPhase2(
   // Transfer the control to the PEI core
   //
   (*PeiCoreEntryPoint) (SecCoreData, (EFI_PEI_PPI_DESCRIPTOR *)&mPrivateDispatchTable);
-  
+
   //
   // If we get here then the PEI Core returned, which is not recoverable.
   //
@@ -887,23 +1044,23 @@ TemporaryRamMigration (
   DEBUG_AGENT_CONTEXT_POSTMEM_SEC  DebugAgentContext;
   BOOLEAN                          OldStatus;
   BASE_LIBRARY_JUMP_BUFFER         JumpBuffer;
-  
-  DEBUG ((EFI_D_INFO,
+
+  DEBUG ((DEBUG_INFO,
     "TemporaryRamMigration(0x%Lx, 0x%Lx, 0x%Lx)\n",
     TemporaryMemoryBase,
     PermanentMemoryBase,
     (UINT64)CopySize
     ));
-  
+
   OldHeap = (VOID*)(UINTN)TemporaryMemoryBase;
   NewHeap = (VOID*)((UINTN)PermanentMemoryBase + (CopySize >> 1));
-  
+
   OldStack = (VOID*)((UINTN)TemporaryMemoryBase + (CopySize >> 1));
   NewStack = (VOID*)(UINTN)PermanentMemoryBase;
 
   DebugAgentContext.HeapMigrateOffset = (UINTN)NewHeap - (UINTN)OldHeap;
   DebugAgentContext.StackMigrateOffset = (UINTN)NewStack - (UINTN)OldStack;
-  
+
   OldStatus = SaveAndSetDebugTimerInterrupt (FALSE);
   InitializeDebugAgent (DEBUG_AGENT_INIT_POSTMEM_SEC, (VOID *) &DebugAgentContext, NULL);
 
@@ -916,7 +1073,7 @@ TemporaryRamMigration (
   // Migrate Stack
   //
   CopyMem (NewStack, OldStack, CopySize >> 1);
-  
+
   //
   // Rebase IDT table in permanent memory
   //
@@ -927,16 +1084,16 @@ TemporaryRamMigration (
 
   //
   // Use SetJump()/LongJump() to switch to a new stack.
-  // 
+  //
   if (SetJump (&JumpBuffer) == 0) {
 #if defined (MDE_CPU_IA32)
     JumpBuffer.Esp = JumpBuffer.Esp + DebugAgentContext.StackMigrateOffset;
     JumpBuffer.Ebp = JumpBuffer.Ebp + DebugAgentContext.StackMigrateOffset;
-#endif    
+#endif
 #if defined (MDE_CPU_X64)
     JumpBuffer.Rsp = JumpBuffer.Rsp + DebugAgentContext.StackMigrateOffset;
     JumpBuffer.Rbp = JumpBuffer.Rbp + DebugAgentContext.StackMigrateOffset;
-#endif    
+#endif
     LongJump (&JumpBuffer, (UINTN)-1);
   }
 

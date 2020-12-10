@@ -4,8 +4,8 @@
   (TCG Storage Architecture Core Specification, Version 2.01, Revision 1.00,
   https://trustedcomputinggroup.org/tcg-storage-architecture-core-specification/
 
-  Storage Work Group Storage Security Subsystem Class: Pyrite, Version 1.00 Final, Revision 1.00,
-  https://trustedcomputinggroup.org/tcg-storage-security-subsystem-class-pyrite/
+  Storage Work Group Storage Security Subsystem Class: Pyrite, Specification Version 2.00, Revision 1.00,
+  https://trustedcomputinggroup.org/resource/tcg-storage-security-subsystem-class-pyrite/
 
   Storage Work Group Storage Security Subsystem Class: Opal, Version 2.01 Final, Revision 1.00,
   https://trustedcomputinggroup.org/storage-work-group-storage-security-subsystem-class-opal/
@@ -22,13 +22,7 @@
   Check http://trustedcomputinggroup.org for latest specification updates.
 
 Copyright (c) 2016 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 

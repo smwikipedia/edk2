@@ -6,13 +6,7 @@
   Copyright (c) 2011 - 2013, Intel Corporation. All rights reserved.<BR>
   Copyright (c) 2017, Advanced Micro Devices. All rights reserved.<BR>
 
-  This program and the accompanying materials are licensed and made available
-  under the terms and conditions of the BSD License which accompanies this
-  distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS, WITHOUT
-  WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
 
 #include <Uefi.h>
@@ -72,14 +66,14 @@ QemuFwCfgInitialize (
 
   QemuFwCfgSelectItem (QemuFwCfgItemSignature);
   Signature = QemuFwCfgRead32 ();
-  DEBUG ((EFI_D_INFO, "FW CFG Signature: 0x%x\n", Signature));
+  DEBUG ((DEBUG_INFO, "FW CFG Signature: 0x%x\n", Signature));
   QemuFwCfgSelectItem (QemuFwCfgItemInterfaceVersion);
   Revision = QemuFwCfgRead32 ();
-  DEBUG ((EFI_D_INFO, "FW CFG Revision: 0x%x\n", Revision));
+  DEBUG ((DEBUG_INFO, "FW CFG Revision: 0x%x\n", Revision));
   if ((Signature != SIGNATURE_32 ('Q', 'E', 'M', 'U')) ||
       (Revision < 1)
      ) {
-    DEBUG ((EFI_D_INFO, "QemuFwCfg interface not supported.\n"));
+    DEBUG ((DEBUG_INFO, "QemuFwCfg interface not supported.\n"));
     mQemuFwCfgSupported = FALSE;
     return RETURN_SUCCESS;
   }
@@ -170,7 +164,7 @@ AllocFwCfgDmaAccessBuffer (
 
   //
   // As per UEFI spec, in order to map a host address with
-  // BusMasterCommomBuffer64, the buffer must be allocated using the IOMMU
+  // BusMasterCommonBuffer64, the buffer must be allocated using the IOMMU
   // AllocateBuffer()
   //
   Status = mIoMmuProtocol->AllocateBuffer (

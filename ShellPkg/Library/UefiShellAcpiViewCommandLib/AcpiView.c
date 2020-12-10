@@ -1,13 +1,13 @@
 /** @file
 
-  Copyright (c) 2016 - 2018, ARM Limited. All rights reserved.
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
+  Copyright (c) 2016 - 2020, ARM Limited. All rights reserved.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  @par Glossary:
+    - Sbbr or SBBR   - Server Base Boot Requirements
+
+  @par Reference(s):
+    - Arm Server Base Boot Requirements 1.2, September 2019
 **/
 
 #include <Library/PrintLib.h>
@@ -17,92 +17,18 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/AcpiViewCommandLib.h>
 #include "AcpiParser.h"
 #include "AcpiTableParser.h"
 #include "AcpiView.h"
-#include "UefiShellAcpiViewCommandLib.h"
+#include "AcpiViewConfig.h"
 
-EFI_HII_HANDLE gShellAcpiViewHiiHandle = NULL;
+#if defined(MDE_CPU_ARM) || defined (MDE_CPU_AARCH64)
+#include "Arm/SbbrValidator.h"
+#endif
 
-// Report variables
-STATIC UINT32             mSelectedAcpiTable;
-STATIC CONST CHAR16*      mSelectedAcpiTableName;
-STATIC BOOLEAN            mSelectedAcpiTableFound;
-STATIC EREPORT_OPTION     mReportType;
 STATIC UINT32             mTableCount;
 STATIC UINT32             mBinTableCount;
-STATIC BOOLEAN            mVerbose;
-STATIC BOOLEAN            mConsistencyCheck;
-STATIC BOOLEAN            mColourHighlighting;
-
-/**
-  An array of acpiview command line parameters.
-**/
-STATIC CONST SHELL_PARAM_ITEM ParamList[] = {
-  {L"/?", TypeFlag},
-  {L"-c", TypeFlag},
-  {L"-d", TypeFlag},
-  {L"-h", TypeValue},
-  {L"-l", TypeFlag},
-  {L"-s", TypeValue},
-  {L"-v", TypeFlag},
-  {NULL, TypeMax}
-};
-
-/**
-  This function returns the colour highlighting status.
-
-  @retval TRUE if colour highlighting is enabled.
-**/
-BOOLEAN
-GetColourHighlighting (
-  VOID
-  )
-{
-  return mColourHighlighting;
-}
-
-/**
-  This function sets the colour highlighting status.
-
-  @param  Highlight       The Highlight status.
-
-**/
-VOID
-SetColourHighlighting (
-  BOOLEAN Highlight
-  )
-{
-  mColourHighlighting = Highlight;
-}
-
-/**
-  This function returns the report options.
-
-  @retval Returns the report option.
-**/
-STATIC
-EREPORT_OPTION
-GetReportOption (
-  VOID
-  )
-{
-  return mReportType;
-}
-
-/**
-  This function returns the selected ACPI table.
-
-  @retval Returns signature of the selected ACPI table.
-**/
-STATIC
-UINT32
-GetSelectedAcpiTable (
-  VOID
-  )
-{
-  return mSelectedAcpiTable;
-}
 
 /**
   This function dumps the ACPI table to a file.
@@ -120,55 +46,23 @@ DumpAcpiTableToFile (
   IN CONST UINTN   Length
   )
 {
-  EFI_STATUS         Status;
-  CHAR16             FileNameBuffer[MAX_FILE_NAME_LEN];
-  SHELL_FILE_HANDLE  DumpFileHandle;
-  UINTN              TransferBytes;
+  CHAR16              FileNameBuffer[MAX_FILE_NAME_LEN];
+  UINTN               TransferBytes;
+  SELECTED_ACPI_TABLE *SelectedTable;
 
-  DumpFileHandle = NULL;
-  TransferBytes = Length;
+  GetSelectedAcpiTable (&SelectedTable);
 
   UnicodeSPrint (
     FileNameBuffer,
     sizeof (FileNameBuffer),
     L".\\%s%04d.bin",
-    mSelectedAcpiTableName,
+    SelectedTable->Name,
     mBinTableCount++
     );
 
-  Status = ShellOpenFileByName (
-             FileNameBuffer,
-             &DumpFileHandle,
-             EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE,
-             0
-             );
-  if (EFI_ERROR (Status)) {
-    ShellPrintHiiEx (
-      -1,
-      -1,
-      NULL,
-      STRING_TOKEN (STR_GEN_READONLY_MEDIA),
-      gShellAcpiViewHiiHandle,
-      L"acpiview"
-      );
-    return FALSE;
-  }
-
   Print (L"Dumping ACPI table to : %s ... ", FileNameBuffer);
 
-  Status = ShellWriteFile (
-             DumpFileHandle,
-             &TransferBytes,
-             (VOID*)Ptr
-             );
-  if (EFI_ERROR (Status)) {
-    Print (L"ERROR: Failed to dump table to binary file.\n");
-    TransferBytes = 0;
-  } else {
-    Print (L"DONE.\n");
-  }
-
-  ShellCloseFile (&DumpFileHandle);
+  TransferBytes = ShellDumpBufferToFile (FileNameBuffer, Ptr, Length);
   return (Length == TransferBytes);
 }
 
@@ -188,23 +82,29 @@ ProcessTableReportOptions (
   IN CONST UINT32  Length
   )
 {
-  UINTN   OriginalAttribute;
-  UINT8*  SignaturePtr;
-  BOOLEAN Log;
-  BOOLEAN HighLight;
+  UINTN                OriginalAttribute;
+  UINT8                *SignaturePtr;
+  BOOLEAN              Log;
+  BOOLEAN              HighLight;
+  SELECTED_ACPI_TABLE  *SelectedTable;
 
+  //
+  // set local variables to suppress incorrect compiler/analyzer warnings
+  //
+  OriginalAttribute = 0;
   SignaturePtr = (UINT8*)(UINTN)&Signature;
   Log = FALSE;
   HighLight = GetColourHighlighting ();
+  GetSelectedAcpiTable (&SelectedTable);
 
   switch (GetReportOption ()) {
     case ReportAll:
       Log = TRUE;
       break;
     case ReportSelected:
-      if (Signature == GetSelectedAcpiTable ()) {
+      if (Signature == SelectedTable->Type) {
         Log = TRUE;
-        mSelectedAcpiTableFound = TRUE;
+        SelectedTable->Found = TRUE;
       }
       break;
     case ReportTableList:
@@ -232,8 +132,8 @@ ProcessTableReportOptions (
         );
       break;
     case ReportDumpBinFile:
-      if (Signature == GetSelectedAcpiTable ()) {
-        mSelectedAcpiTableFound = TRUE;
+      if (Signature == SelectedTable->Type) {
+        SelectedTable->Found = TRUE;
         DumpAcpiTableToFile (TablePtr, Length);
       }
       break;
@@ -267,37 +167,7 @@ ProcessTableReportOptions (
   return Log;
 }
 
-/**
-  This function converts a string to ACPI table signature.
 
-  @param [in] Str   Pointer to the string to be converted to the
-                    ACPI table signature.
-
-  @retval The ACPI table signature.
-**/
-STATIC
-UINT32
-ConvertStrToAcpiSignature (
-  IN  CONST CHAR16* Str
-  )
-{
-  UINT8 Index;
-  CHAR8 Ptr[4];
-
-  ZeroMem (Ptr, sizeof (Ptr));
-  Index = 0;
-
-  // Convert to Upper case and convert to ASCII
-  while ((Index < 4) && (Str[Index] != 0)) {
-    if (Str[Index] >= L'a' && Str[Index] <= L'z') {
-      Ptr[Index] = (CHAR8)(Str[Index] - (L'a' - L'A'));
-    } else {
-      Ptr[Index] = (CHAR8)Str[Index];
-    }
-    Index++;
-  }
-  return *(UINT32*)Ptr;
-}
 
 /**
   This function iterates the configuration table entries in the
@@ -309,7 +179,6 @@ ConvertStrToAcpiSignature (
           Returns EFI_UNSUPPORTED if the RSDP version is less than 2.
           Returns EFI_SUCCESS     if successful.
 **/
-STATIC
 EFI_STATUS
 EFIAPI
 AcpiView (
@@ -328,6 +197,24 @@ AcpiView (
   UINT8                    RsdpRevision;
   PARSE_ACPI_TABLE_PROC    RsdpParserProc;
   BOOLEAN                  Trace;
+  SELECTED_ACPI_TABLE      *SelectedTable;
+
+  //
+  // set local variables to suppress incorrect compiler/analyzer warnings
+  //
+  EfiConfigurationTable = NULL;
+  OriginalAttribute = 0;
+
+  // Reset Table counts
+  mTableCount = 0;
+  mBinTableCount = 0;
+
+  // Reset The error/warning counters
+  ResetErrorCount ();
+  ResetWarningCount ();
+
+  // Retrieve the user selection of ACPI table to process
+  GetSelectedAcpiTable (&SelectedTable);
 
   // Search the table for an entry that matches the ACPI Table Guid
   FoundAcpiTable = FALSE;
@@ -352,6 +239,12 @@ AcpiView (
         );
       return EFI_UNSUPPORTED;
     }
+
+#if defined(MDE_CPU_ARM) || defined (MDE_CPU_AARCH64)
+    if (GetMandatoryTableValidate ()) {
+      ArmSbbrResetTableCounts ();
+    }
+#endif
 
     // The RSDP length is 4 bytes starting at offset 20
     RsdpLength = *(UINT32*)(RsdpPtr + RSDP_LENGTH_OFFSET);
@@ -381,13 +274,20 @@ AcpiView (
     return EFI_NOT_FOUND;
   }
 
+#if defined(MDE_CPU_ARM) || defined (MDE_CPU_AARCH64)
+  if (GetMandatoryTableValidate ()) {
+    ArmSbbrReqsValidate ((ARM_SBBR_VERSION)GetMandatoryTableSpec ());
+  }
+#endif
+
   ReportOption = GetReportOption ();
   if (ReportTableList != ReportOption) {
     if (((ReportSelected == ReportOption)  ||
          (ReportDumpBinFile == ReportOption)) &&
-        (!mSelectedAcpiTableFound)) {
+        (!SelectedTable->Found)) {
       Print (L"\nRequested ACPI Table not found.\n");
-    } else if (ReportDumpBinFile != ReportOption) {
+    } else if (GetConsistencyChecking () &&
+               (ReportDumpBinFile != ReportOption)) {
       OriginalAttribute = gST->ConOut->Mode->Attribute;
 
       Print (L"\nTable Statistics:\n");
@@ -421,207 +321,4 @@ AcpiView (
     }
   }
   return EFI_SUCCESS;
-}
-
-/**
-  Function for 'acpiview' command.
-
-  @param[in] ImageHandle  Handle to the Image (NULL if Internal).
-  @param[in] SystemTable  Pointer to the System Table (NULL if Internal).
-**/
-SHELL_STATUS
-EFIAPI
-ShellCommandRunAcpiView (
-  IN EFI_HANDLE        ImageHandle,
-  IN EFI_SYSTEM_TABLE* SystemTable
-  )
-{
-  EFI_STATUS         Status;
-  SHELL_STATUS       ShellStatus;
-  LIST_ENTRY*        Package;
-  CHAR16*            ProblemParam;
-  CONST CHAR16*      Temp;
-  CHAR8              ColourOption[8];
-  SHELL_FILE_HANDLE  TmpDumpFileHandle;
-
-  // Set Defaults
-  mReportType = ReportAll;
-  mTableCount = 0;
-  mBinTableCount = 0;
-  mSelectedAcpiTable = 0;
-  mSelectedAcpiTableName = NULL;
-  mSelectedAcpiTableFound = FALSE;
-  mVerbose = TRUE;
-  mConsistencyCheck = TRUE;
-
-  ShellStatus = SHELL_SUCCESS;
-  Package = NULL;
-  TmpDumpFileHandle = NULL;
-
-  // Reset The error/warning counters
-  ResetErrorCount ();
-  ResetWarningCount ();
-
-  Status = ShellCommandLineParse (ParamList, &Package, &ProblemParam, TRUE);
-  if (EFI_ERROR (Status)) {
-    if (Status == EFI_VOLUME_CORRUPTED && ProblemParam != NULL) {
-      ShellPrintHiiEx (
-        -1,
-        -1,
-        NULL,
-        STRING_TOKEN (STR_GEN_PROBLEM),
-        gShellAcpiViewHiiHandle,
-        L"acpiview",
-        ProblemParam
-        );
-      FreePool (ProblemParam);
-    } else {
-      Print (L"acpiview: Error processing input parameter(s)\n");
-    }
-    ShellStatus = SHELL_INVALID_PARAMETER;
-  } else {
-    if (ShellCommandLineGetCount (Package) > 1) {
-      ShellPrintHiiEx (
-        -1,
-        -1,
-        NULL,
-        STRING_TOKEN (STR_GEN_TOO_MANY),
-        gShellAcpiViewHiiHandle,
-        L"acpiview"
-        );
-      ShellStatus = SHELL_INVALID_PARAMETER;
-    } else if (ShellCommandLineGetFlag (Package, L"-?")) {
-      ShellPrintHiiEx (
-        -1,
-        -1,
-        NULL,
-        STRING_TOKEN (STR_GET_HELP_ACPIVIEW),
-        gShellAcpiViewHiiHandle,
-        L"acpiview"
-        );
-    } else if (ShellCommandLineGetFlag (Package, L"-s") &&
-               ShellCommandLineGetValue (Package, L"-s") == NULL) {
-      ShellPrintHiiEx (
-        -1,
-        -1,
-        NULL,
-        STRING_TOKEN (STR_GEN_NO_VALUE),
-        gShellAcpiViewHiiHandle,
-        L"acpiview",
-        L"-s"
-        );
-      ShellStatus = SHELL_INVALID_PARAMETER;
-    } else if ((ShellCommandLineGetFlag (Package, L"-s") &&
-                ShellCommandLineGetFlag (Package, L"-l"))) {
-      ShellPrintHiiEx (
-        -1,
-        -1,
-        NULL,
-        STRING_TOKEN (STR_GEN_TOO_MANY),
-        gShellAcpiViewHiiHandle,
-        L"acpiview"
-        );
-      ShellStatus = SHELL_INVALID_PARAMETER;
-    } else if (ShellCommandLineGetFlag (Package, L"-h") &&
-               ShellCommandLineGetValue (Package, L"-h") == NULL) {
-        ShellPrintHiiEx (
-          -1,
-          -1,
-          NULL,
-          STRING_TOKEN (STR_GEN_NO_VALUE),
-          gShellAcpiViewHiiHandle,
-          L"acpiview",
-          L"-h"
-          );
-        ShellStatus = SHELL_INVALID_PARAMETER;
-    } else if (ShellCommandLineGetFlag (Package, L"-d") &&
-               !ShellCommandLineGetFlag (Package, L"-s")) {
-        ShellPrintHiiEx (
-          -1,
-          -1,
-          NULL,
-          STRING_TOKEN (STR_GEN_MISSING_OPTION),
-          gShellAcpiViewHiiHandle,
-          L"acpiview",
-          L"-s",
-          L"-d"
-          );
-        ShellStatus = SHELL_INVALID_PARAMETER;
-    } else {
-      // Check if the colour option is set
-      Temp = ShellCommandLineGetValue (Package, L"-h");
-      if (Temp != NULL) {
-        UnicodeStrToAsciiStrS (Temp, ColourOption, sizeof (ColourOption));
-        if ((AsciiStriCmp (ColourOption, "ON") == 0) ||
-            (AsciiStriCmp (ColourOption, "TRUE") == 0)) {
-          SetColourHighlighting (TRUE);
-        } else if ((AsciiStriCmp (ColourOption, "OFF") == 0) ||
-                   (AsciiStriCmp (ColourOption, "FALSE") == 0)) {
-          SetColourHighlighting (FALSE);
-        }
-      }
-
-      if (ShellCommandLineGetFlag (Package, L"-l")) {
-        mReportType = ReportTableList;
-      } else {
-        mSelectedAcpiTableName = ShellCommandLineGetValue (Package, L"-s");
-        if (mSelectedAcpiTableName != NULL) {
-          mSelectedAcpiTable = (UINT32)ConvertStrToAcpiSignature (
-                                         mSelectedAcpiTableName
-                                         );
-          mReportType = ReportSelected;
-
-          if (ShellCommandLineGetFlag (Package, L"-d"))  {
-            // Create a temporary file to check if the media is writable.
-            CHAR16 FileNameBuffer[MAX_FILE_NAME_LEN];
-            mReportType = ReportDumpBinFile;
-
-            UnicodeSPrint (
-              FileNameBuffer,
-              sizeof (FileNameBuffer),
-              L".\\%s%04d.tmp",
-              mSelectedAcpiTableName,
-              mBinTableCount
-              );
-
-            Status = ShellOpenFileByName (
-                       FileNameBuffer,
-                       &TmpDumpFileHandle,
-                       EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE |
-                       EFI_FILE_MODE_CREATE,
-                       0
-                       );
-
-            if (EFI_ERROR (Status)) {
-              ShellStatus = SHELL_INVALID_PARAMETER;
-              TmpDumpFileHandle = NULL;
-              ShellPrintHiiEx (
-                -1,
-                -1,
-                NULL,
-                STRING_TOKEN (STR_GEN_READONLY_MEDIA),
-                gShellAcpiViewHiiHandle,
-                L"acpiview"
-                );
-              goto Done;
-            }
-            // Delete Temporary file.
-            ShellDeleteFile (&TmpDumpFileHandle);
-          } // -d
-        } // -s
-      }
-
-      // Parse ACPI Table information
-      Status = AcpiView (SystemTable);
-      if (EFI_ERROR (Status)) {
-        ShellStatus = SHELL_NOT_FOUND;
-      }
-    }
-  }
-
-Done:
-  if (Package != NULL) {
-    ShellCommandLineFreeVarList (Package);
-  }
-  return ShellStatus;
 }

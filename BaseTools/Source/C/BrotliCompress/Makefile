@@ -1,60 +1,48 @@
 ## @file
 # Windows makefile for 'Brotli' module build.
 #
-# Copyright (c) 2017, Intel Corporation. All rights reserved.<BR>
-# This program and the accompanying materials
-# are licensed and made available under the terms and conditions of the BSD License
-# which accompanies this distribution.  The full text of the license may be found at
-# http://opensource.org/licenses/bsd-license.php
-#
-# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+# Copyright (c) 2017 - 2020, Intel Corporation. All rights reserved.<BR>
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 !INCLUDE ..\Makefiles\ms.common
 
+INC = -I .\brotli\c\include $(INC)
 CFLAGS = $(CFLAGS) /W2
 
-APPNAME = Brotli
+APPNAME = BrotliCompress
 
 #LIBS = $(LIB_PATH)\Common.lib
 
-COMMON_OBJ = common\dictionary.obj
+COMMON_OBJ = brotli\c\common\dictionary.obj brotli\c\common\transform.obj
 DEC_OBJ = \
-  dec\bit_reader.obj \
-  dec\decode.obj \
-  dec\huffman.obj \
-  dec\state.obj
+  brotli\c\dec\bit_reader.obj \
+  brotli\c\dec\decode.obj \
+  brotli\c\dec\huffman.obj \
+  brotli\c\dec\state.obj
 ENC_OBJ = \
-  enc\backward_references.obj \
-  enc\bit_cost.obj \
-  enc\block_splitter.obj \
-  enc\brotli_bit_stream.obj \
-  enc\cluster.obj \
-  enc\compress_fragment.obj \
-  enc\compress_fragment_two_pass.obj \
-  enc\encode.obj \
-  enc\entropy_encode.obj \
-  enc\histogram.obj \
-  enc\literal_cost.obj \
-  enc\memory.obj \
-  enc\metablock.obj \
-  enc\static_dict.obj \
-  enc\utf8_util.obj
+  brotli\c\enc\backward_references.obj \
+  brotli\c\enc\backward_references_hq.obj \
+  brotli\c\enc\bit_cost.obj \
+  brotli\c\enc\block_splitter.obj \
+  brotli\c\enc\brotli_bit_stream.obj \
+  brotli\c\enc\cluster.obj \
+  brotli\c\enc\compress_fragment.obj \
+  brotli\c\enc\compress_fragment_two_pass.obj \
+  brotli\c\enc\dictionary_hash.obj \
+  brotli\c\enc\encode.obj \
+  brotli\c\enc\encoder_dict.obj \
+  brotli\c\enc\entropy_encode.obj \
+  brotli\c\enc\histogram.obj \
+  brotli\c\enc\literal_cost.obj \
+  brotli\c\enc\memory.obj \
+  brotli\c\enc\metablock.obj \
+  brotli\c\enc\static_dict.obj \
+  brotli\c\enc\utf8_util.obj
 
 OBJECTS = \
-  tools\bro.obj \
+  BrotliCompress.obj \
   $(COMMON_OBJ) \
   $(DEC_OBJ) \
   $(ENC_OBJ)
 
 !INCLUDE ..\Makefiles\ms.app
-
-all: $(BIN_PATH)\BrotliCompress.bat
-
-$(BIN_PATH)\BrotliCompress.bat: BrotliCompress.bat
-  copy BrotliCompress.bat $(BIN_PATH)\BrotliCompress.bat /Y
-
-cleanall: localCleanall
-
-localCleanall:
-  del /f /q $(BIN_PATH)\BrotliCompress.bat > nul

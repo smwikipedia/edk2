@@ -2,13 +2,7 @@
   The boot manager reference implementation
 
 Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials are licensed and made available under
-the terms and conditions of the BSD License that accompanies this distribution.
-The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php.
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -541,9 +535,9 @@ UpdateBootManager (
     mKeyInput++;
 
     //
-    // Don't display the hidden/inactive boot option
+    // Don't display hidden boot options, but retain inactive ones.
     //
-    if (((BootOption[Index].Attributes & LOAD_OPTION_HIDDEN) != 0) || ((BootOption[Index].Attributes & LOAD_OPTION_ACTIVE) == 0)) {
+    if ((BootOption[Index].Attributes & LOAD_OPTION_HIDDEN) != 0) {
       continue;
     }
 

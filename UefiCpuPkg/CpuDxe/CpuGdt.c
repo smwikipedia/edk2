@@ -1,15 +1,9 @@
 /** @file
-  C based implemention of IA32 interrupt handling only
+  C based implementation of IA32 interrupt handling only
   requiring a minimal assembly interrupt entry point.
 
   Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -76,14 +70,14 @@ STATIC GDT_ENTRIES GdtTemplate = {
     0x0,
   },
   //
-  // SPARE4_SEL
+  // SYS_CODE16_SEL
   //
   {
-    0x0,            // limit 15:0
+    0x0FFFF,        // limit 15:0
     0x0,            // base 15:0
     0x0,            // base 23:16
-    0x0,            // type
-    0x0,            // limit 19:16, flags
+    0x09A,          // present, ring 0, code, execute/read
+    0x08F,          // page-granular, 16-bit
     0x0,            // base 31:24
   },
   //

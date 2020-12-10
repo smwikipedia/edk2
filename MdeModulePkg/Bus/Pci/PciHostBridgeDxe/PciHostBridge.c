@@ -3,13 +3,7 @@
   Provides the basic interfaces to abstract a PCI Host Bridge Resource Allocation.
 
 Copyright (c) 1999 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -26,7 +20,7 @@ GLOBAL_REMOVE_IF_UNREFERENCED CHAR16 *mPciResourceTypeStr[] = {
   L"I/O", L"Mem", L"PMem", L"Mem64", L"PMem64", L"Bus"
 };
 
-EDKII_IOMMU_PROTOCOL        *mIoMmuProtocol;
+EDKII_IOMMU_PROTOCOL        *mIoMmu;
 EFI_EVENT                   mIoMmuEvent;
 VOID                        *mIoMmuRegistration;
 
@@ -363,7 +357,7 @@ IoMmuProtocolCallback (
 {
   EFI_STATUS   Status;
 
-  Status = gBS->LocateProtocol (&gEdkiiIoMmuProtocolGuid, NULL, (VOID **)&mIoMmuProtocol);
+  Status = gBS->LocateProtocol (&gEdkiiIoMmuProtocolGuid, NULL, (VOID **)&mIoMmu);
   if (!EFI_ERROR(Status)) {
     gBS->CloseEvent (mIoMmuEvent);
   }

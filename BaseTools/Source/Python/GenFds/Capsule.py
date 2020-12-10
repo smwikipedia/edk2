@@ -3,35 +3,25 @@
 #
 #  Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
 #
-#  This program and the accompanying materials
-#  are licensed and made available under the terms and conditions of the BSD License
-#  which accompanies this distribution.  The full text of the license may be found at
-#  http://opensource.org/licenses/bsd-license.php
-#
-#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 
 ##
 # Import Modules
 #
 from __future__ import absolute_import
-from .GenFdsGlobalVariable import GenFdsGlobalVariable
-from .GenFdsGlobalVariable import FindExtendTool
+from .GenFdsGlobalVariable import GenFdsGlobalVariable, FindExtendTool
 from CommonDataClass.FdfClass import CapsuleClassObject
 import Common.LongFilePathOs as os
-import subprocess
 from io import BytesIO
-from Common.Misc import SaveFileOnChange
-from Common.Misc import PackRegistryFormatGuid
+from Common.Misc import SaveFileOnChange, PackGUID
 import uuid
 from struct import pack
 from Common import EdkLogger
-from Common.BuildToolError import *
+from Common.BuildToolError import GENFDS_ERROR
+from Common.DataType import TAB_LINE_BREAK
 
-
-T_CHAR_LF = '\n'
-WIN_CERT_REVISION      = 0x0200
+WIN_CERT_REVISION = 0x0200
 WIN_CERT_TYPE_EFI_GUID = 0x0EF1
 EFI_CERT_TYPE_PKCS7_GUID = uuid.UUID('{4aafd29d-68df-49ee-8aa9-347d375665a7}')
 EFI_CERT_TYPE_RSA2048_SHA256_GUID = uuid.UUID('{a7717414-c616-4977-9420-844712a735bf}')
@@ -39,7 +29,7 @@ EFI_CERT_TYPE_RSA2048_SHA256_GUID = uuid.UUID('{a7717414-c616-4977-9420-844712a7
 ## create inf file describes what goes into capsule and call GenFv to generate capsule
 #
 #
-class Capsule (CapsuleClassObject) :
+class Capsule (CapsuleClassObject):
     ## The constructor
     #
     #   @param  self        The object pointer
@@ -70,7 +60,7 @@ class Capsule (CapsuleClassObject) :
         #
         # Use FMP capsule GUID: 6DCBD5ED-E82D-4C44-BDA1-7194199AD92A
         #
-        Header.write(PackRegistryFormatGuid('6DCBD5ED-E82D-4C44-BDA1-7194199AD92A'))
+        Header.write(PackGUID('6DCBD5ED-E82D-4C44-BDA1-7194199AD92A'.split('-')))
         HdrSize = 0
         if 'CAPSULE_HEADER_SIZE' in self.TokensDict:
             Header.write(pack('=I', int(self.TokensDict['CAPSULE_HEADER_SIZE'], 16)))
@@ -185,7 +175,7 @@ class Capsule (CapsuleClassObject) :
         #
         # The real capsule header structure is 28 bytes
         #
-        Header.write('\x00'*(HdrSize-28))
+        Header.write(b'\x00'*(HdrSize-28))
         Header.write(FwMgrHdr.getvalue())
         Header.write(Content.getvalue())
         #
@@ -210,18 +200,17 @@ class Capsule (CapsuleClassObject) :
             return self.GenFmpCapsule()
 
         CapInfFile = self.GenCapInf()
-        CapInfFile.writelines("[files]" + T_CHAR_LF)
+        CapInfFile.append("[files]" + TAB_LINE_BREAK)
         CapFileList = []
-        for CapsuleDataObj in self.CapsuleDataList :
+        for CapsuleDataObj in self.CapsuleDataList:
             CapsuleDataObj.CapsuleName = self.CapsuleName
             FileName = CapsuleDataObj.GenCapsuleSubItem()
             CapsuleDataObj.CapsuleName = None
             CapFileList.append(FileName)
-            CapInfFile.writelines("EFI_FILE_NAME = " + \
+            CapInfFile.append("EFI_FILE_NAME = " + \
                                    FileName      + \
-                                   T_CHAR_LF)
-        SaveFileOnChange(self.CapInfFileName, CapInfFile.getvalue(), False)
-        CapInfFile.close()
+                                   TAB_LINE_BREAK)
+        SaveFileOnChange(self.CapInfFileName, ''.join(CapInfFile), False)
         #
         # Call GenFv tool to generate capsule
         #
@@ -247,15 +236,15 @@ class Capsule (CapsuleClassObject) :
     def GenCapInf(self):
         self.CapInfFileName = os.path.join(GenFdsGlobalVariable.FvDir,
                                    self.UiCapsuleName +  "_Cap" + '.inf')
-        CapInfFile = BytesIO() #open (self.CapInfFileName , 'w+')
+        CapInfFile = []
 
-        CapInfFile.writelines("[options]" + T_CHAR_LF)
+        CapInfFile.append("[options]" + TAB_LINE_BREAK)
 
         for Item in self.TokensDict:
-            CapInfFile.writelines("EFI_"                    + \
+            CapInfFile.append("EFI_"                    + \
                                   Item                      + \
                                   ' = '                     + \
                                   self.TokensDict[Item]     + \
-                                  T_CHAR_LF)
+                                  TAB_LINE_BREAK)
 
         return CapInfFile

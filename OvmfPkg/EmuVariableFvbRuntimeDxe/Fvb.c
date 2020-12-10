@@ -3,13 +3,7 @@
   by pretending that a memory buffer is storage for the NV variables.
 
   Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -585,7 +579,7 @@ ValidateFvHeader (
       (FwVolHeader->FvLength != EMU_FVB_SIZE) ||
       (FwVolHeader->HeaderLength != EMU_FV_HEADER_LENGTH)
       ) {
-    DEBUG ((EFI_D_INFO, "EMU Variable FVB: Basic FV headers were invalid\n"));
+    DEBUG ((DEBUG_INFO, "EMU Variable FVB: Basic FV headers were invalid\n"));
     return EFI_NOT_FOUND;
   }
   //
@@ -594,7 +588,7 @@ ValidateFvHeader (
   Checksum = CalculateSum16((VOID*) FwVolHeader, FwVolHeader->HeaderLength);
 
   if (Checksum != 0) {
-    DEBUG ((EFI_D_INFO, "EMU Variable FVB: FV checksum was invalid\n"));
+    DEBUG ((DEBUG_INFO, "EMU Variable FVB: FV checksum was invalid\n"));
     return EFI_NOT_FOUND;
   }
 
@@ -725,7 +719,7 @@ FvbInitialize (
   EFI_PHYSICAL_ADDRESS                Address;
   RETURN_STATUS                       PcdStatus;
 
-  DEBUG ((EFI_D_INFO, "EMU Variable FVB Started\n"));
+  DEBUG ((DEBUG_INFO, "EMU Variable FVB Started\n"));
 
   //
   // Verify that the PCD's are set correctly.
@@ -738,12 +732,12 @@ FvbInitialize (
        ) >
        EMU_FVB_NUM_SPARE_BLOCKS * EMU_FVB_BLOCK_SIZE
      ) {
-    DEBUG ((EFI_D_ERROR, "EMU Variable invalid PCD sizes\n"));
+    DEBUG ((DEBUG_ERROR, "EMU Variable invalid PCD sizes\n"));
     return EFI_INVALID_PARAMETER;
   }
 
   if (PcdGet64 (PcdFlashNvStorageVariableBase64) != 0) {
-    DEBUG ((EFI_D_INFO, "Disabling EMU Variable FVB since "
+    DEBUG ((DEBUG_INFO, "Disabling EMU Variable FVB since "
                         "flash variables appear to be supported.\n"));
     return EFI_ABORTED;
   }
@@ -760,13 +754,13 @@ FvbInitialize (
   if (PcdGet64 (PcdEmuVariableNvStoreReserved) != 0) {
     Ptr = (VOID*)(UINTN) PcdGet64 (PcdEmuVariableNvStoreReserved);
     DEBUG ((
-      EFI_D_INFO,
+      DEBUG_INFO,
       "EMU Variable FVB: Using pre-reserved block at %p\n",
       Ptr
       ));
     Status = ValidateFvHeader (Ptr);
     if (!EFI_ERROR (Status)) {
-      DEBUG ((EFI_D_INFO, "EMU Variable FVB: Found valid pre-existing FV\n"));
+      DEBUG ((DEBUG_INFO, "EMU Variable FVB: Found valid pre-existing FV\n"));
       Initialize = FALSE;
     }
   } else {
@@ -812,7 +806,7 @@ FvbInitialize (
   //
   // Install the protocols
   //
-  DEBUG ((EFI_D_INFO, "Installing FVB for EMU Variable support\n"));
+  DEBUG ((DEBUG_INFO, "Installing FVB for EMU Variable support\n"));
   Handle = 0;
   Status = gBS->InstallMultipleProtocolInterfaces (
                   &Handle,

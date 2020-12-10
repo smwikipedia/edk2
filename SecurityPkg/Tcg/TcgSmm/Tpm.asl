@@ -3,13 +3,8 @@
   and MemoryClear.
 
 Copyright (c) 2011 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+Copyright (c) Microsoft Corporation.<BR>
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -47,10 +42,10 @@ DefinitionBlock (
       //
       // Operational region for Smi port access
       //
-      OperationRegion (SMIP, SystemIO, 0xB2, 1)
+      OperationRegion (SMIP, SystemIO, FixedPcdGet16 (PcdSmiCommandIoPort), 1)
       Field (SMIP, ByteAcc, NoLock, Preserve)
       {
-          IOB2, 8
+          IOPN, 8
       }
 
       //
@@ -70,16 +65,16 @@ DefinitionBlock (
       Field (TNVS, AnyAcc, NoLock, Preserve)
       {
         PPIN,   8,  //   Software SMI for Physical Presence Interface
-        PPIP,   32, //   Used for save physical presence paramter
+        PPIP,   32, //   Used for save physical presence parameter
         PPRP,   32, //   Physical Presence request operation response
         PPRQ,   32, //   Physical Presence request operation
         LPPR,   32, //   Last Physical Presence request operation
         FRET,   32, //   Physical Presence function return code
         MCIN,   8,  //   Software SMI for Memory Clear Interface
-        MCIP,   32, //   Used for save the Mor paramter
+        MCIP,   32, //   Used for save the Mor parameter
         MORD,   32, //   Memory Overwrite Request Data
         MRET,   32, //   Memory Overwrite function return code
-        UCRQ,   32  //   Phyical Presence request operation to Get User Confirmation Status
+        UCRQ,   32  //   Physical Presence request operation to Get User Confirmation Status
       }
 
       Method (PTS, 1, Serialized)
@@ -102,7 +97,7 @@ DefinitionBlock (
             //
             // Trigger the SMI interrupt
             //
-            Store (MCIN, IOB2)
+            Store (MCIN, IOPN)
           }
         }
         Return (0)
@@ -120,12 +115,12 @@ DefinitionBlock (
       //
       // TCG Hardware Information
       //
-      Method (HINF, 3, Serialized, 0, {BuffObj, PkgObj}, {UnknownObj, UnknownObj, UnknownObj}) // IntObj, IntObj, PkgObj
+      Method (HINF, 1, Serialized, 0, {BuffObj, PkgObj}, {UnknownObj}) // IntObj
       {
         //
         // Switch by function index
         //
-        Switch (ToInteger(Arg1))
+        Switch (ToInteger(Arg0))
         {
           Case (0)
           {
@@ -169,12 +164,12 @@ DefinitionBlock (
       //
       // TCG Physical Presence Interface
       //
-      Method (TPPI, 3, Serialized, 0, {BuffObj, PkgObj, IntObj, StrObj}, {UnknownObj, UnknownObj, UnknownObj}) // IntObj, IntObj, PkgObj
+      Method (TPPI, 2, Serialized, 0, {BuffObj, PkgObj, IntObj, StrObj}, {UnknownObj, UnknownObj}) // IntObj, PkgObj
       {
         //
         // Switch by function index
         //
-        Switch (ToInteger(Arg1))
+        Switch (ToInteger(Arg0))
         {
           Case (0)
           {
@@ -196,13 +191,13 @@ DefinitionBlock (
             // b) Submit TPM Operation Request to Pre-OS Environment
             //
 
-            Store (DerefOf (Index (Arg2, 0x00)), PPRQ)
+            Store (DerefOf (Index (Arg1, 0x00)), PPRQ)
             Store (0x02, PPIP)
 
             //
             // Trigger the SMI interrupt
             //
-            Store (PPIN, IOB2)
+            Store (PPIN, IOPN)
             Return (FRET)
 
 
@@ -233,7 +228,7 @@ DefinitionBlock (
             //
             // Trigger the SMI interrupt
             //
-            Store (PPIN, IOB2)
+            Store (PPIN, IOPN)
 
             Store (LPPR, Index (TPM3, 0x01))
             Store (PPRP, Index (TPM3, 0x02))
@@ -256,12 +251,12 @@ DefinitionBlock (
             // g) Submit TPM Operation Request to Pre-OS Environment 2
             //
             Store (7, PPIP)
-            Store (DerefOf (Index (Arg2, 0x00)), PPRQ)
+            Store (DerefOf (Index (Arg1, 0x00)), PPRQ)
 
             //
             // Trigger the SMI interrupt
             //
-            Store (PPIN, IOB2)
+            Store (PPIN, IOPN)
             Return (FRET)
           }
           Case (8)
@@ -270,12 +265,12 @@ DefinitionBlock (
             // e) Get User Confirmation Status for Operation
             //
             Store (8, PPIP)
-            Store (DerefOf (Index (Arg2, 0x00)), UCRQ)
+            Store (DerefOf (Index (Arg1, 0x00)), UCRQ)
 
             //
             // Trigger the SMI interrupt
             //
-            Store (PPIN, IOB2)
+            Store (PPIN, IOPN)
 
             Return (FRET)
           }
@@ -285,12 +280,12 @@ DefinitionBlock (
         Return (1)
       }
 
-      Method (TMCI, 3, Serialized, 0, IntObj, {UnknownObj, UnknownObj, UnknownObj}) // IntObj, IntObj, PkgObj
+      Method (TMCI, 2, Serialized, 0, IntObj, {UnknownObj, UnknownObj}) // IntObj, PkgObj
       {
         //
         // Switch by function index
         //
-        Switch (ToInteger (Arg1))
+        Switch (ToInteger (Arg0))
         {
           Case (0)
           {
@@ -304,7 +299,7 @@ DefinitionBlock (
             //
             // Save the Operation Value of the Request to MORD (reserved memory)
             //
-            Store (DerefOf (Index (Arg2, 0x00)), MORD)
+            Store (DerefOf (Index (Arg1, 0x00)), MORD)
 
             //
             // Trigger the SMI through ACPI _DSM method.
@@ -314,7 +309,7 @@ DefinitionBlock (
             //
             // Trigger the SMI interrupt
             //
-            Store (MCIN, IOB2)
+            Store (MCIN, IOPN)
             Return (MRET)
           }
           Default {BreakPoint}
@@ -330,7 +325,7 @@ DefinitionBlock (
         //
         If(LEqual(Arg0, ToUUID ("cf8e16a5-c1e8-4e25-b712-4f54a96702c8")))
         {
-          Return (HINF (Arg1, Arg2, Arg3))
+          Return (HINF (Arg2))
         }
 
         //
@@ -338,7 +333,7 @@ DefinitionBlock (
         //
         If(LEqual(Arg0, ToUUID ("3dddfaa6-361b-4eb4-a424-8d10089d1653")))
         {
-          Return (TPPI (Arg1, Arg2, Arg3))
+          Return (TPPI (Arg2, Arg3))
         }
 
         //
@@ -346,7 +341,7 @@ DefinitionBlock (
         //
         If(LEqual(Arg0, ToUUID ("376054ed-cc13-4675-901c-4756d7f2d45d")))
         {
-          Return (TMCI (Arg1, Arg2, Arg3))
+          Return (TMCI (Arg2, Arg3))
         }
 
         Return (Buffer () {0})
