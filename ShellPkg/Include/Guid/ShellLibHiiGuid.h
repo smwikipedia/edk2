@@ -2,13 +2,7 @@
   GUIDs for HII package list installed by Shell libraries.
 
   Copyright (c) 2011 - 2016, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -65,6 +59,10 @@
     0x738a9314, 0x82c1, 0x4592, { 0x8f, 0xf7, 0xc1, 0xbd, 0xf1, 0xb2, 0x0e, 0xd4 } \
   }
 
+#define SHELL_HTTP_HII_GUID \
+  { \
+    0x390f84b3, 0x221c, 0x4d9e, { 0xb5, 0x06, 0x6d, 0xb9, 0x42, 0x3e, 0x0a, 0x7e } \
+  }
 
 #define SHELL_BCFG_HII_GUID \
   { \
@@ -81,6 +79,7 @@ extern EFI_GUID gShellLevel3HiiGuid;
 extern EFI_GUID gShellNetwork1HiiGuid;
 extern EFI_GUID gShellNetwork2HiiGuid;
 extern EFI_GUID gShellTftpHiiGuid;
+extern EFI_GUID gShellHttpHiiGuid;
 extern EFI_GUID gShellBcfgHiiGuid;
 
 #endif

@@ -3,13 +3,7 @@
   phase on ARM platforms
 
 Copyright (c) 2017 - 2018, ARM Ltd. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php.
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -224,16 +218,14 @@ _ModuleEntryPoint (
 {
   PE_COFF_LOADER_IMAGE_CONTEXT            ImageContext;
   EFI_SECURE_PARTITION_BOOT_INFO          *PayloadBootInfo;
-  ARM_SVC_ARGS                            InitMmFoundationSvcArgs = {0};
+  ARM_SVC_ARGS                            InitMmFoundationSvcArgs;
   EFI_STATUS                              Status;
   UINT32                                  SectionHeaderOffset;
   UINT16                                  NumberOfSections;
   VOID                                    *HobStart;
   VOID                                    *TeData;
   UINTN                                   TeDataSize;
-
-  Status = SerialPortInitialize ();
-  ASSERT_EFI_ERROR (Status);
+  EFI_PHYSICAL_ADDRESS                    ImageBase;
 
   // Get Secure Partition Manager Version Information
   Status = GetSpmVersion ();
@@ -262,6 +254,7 @@ _ModuleEntryPoint (
   Status = GetStandaloneMmCorePeCoffSections (
              TeData,
              &ImageContext,
+             &ImageBase,
              &SectionHeaderOffset,
              &NumberOfSections
              );
@@ -270,10 +263,21 @@ _ModuleEntryPoint (
     goto finish;
   }
 
+  //
+  // ImageBase may deviate from ImageContext.ImageAddress if we are dealing
+  // with a TE image, in which case the latter points to the actual offset
+  // of the image, whereas ImageBase refers to the address where the image
+  // would start if the stripped PE headers were still in place. In either
+  // case, we need to fix up ImageBase so it refers to the actual current
+  // load address.
+  //
+  ImageBase += (UINTN)TeData - ImageContext.ImageAddress;
+
   // Update the memory access permissions of individual sections in the
   // Standalone MM core module
   Status = UpdateMmFoundationPeCoffPermissions (
              &ImageContext,
+             ImageBase,
              SectionHeaderOffset,
              NumberOfSections,
              ArmSetMemoryRegionNoExec,
@@ -283,6 +287,15 @@ _ModuleEntryPoint (
 
   if (EFI_ERROR (Status)) {
     goto finish;
+  }
+
+  if (ImageContext.ImageAddress != (UINTN)TeData) {
+    ImageContext.ImageAddress = (UINTN)TeData;
+    ArmSetMemoryRegionNoExec (ImageBase, SIZE_4KB);
+    ArmClearMemoryRegionReadOnly (ImageBase, SIZE_4KB);
+
+    Status = PeCoffLoaderRelocateImage (&ImageContext);
+    ASSERT_EFI_ERROR (Status);
   }
 
   //
@@ -295,12 +308,11 @@ _ModuleEntryPoint (
   //
   ProcessModuleEntryPointList (HobStart);
 
-  ASSERT_EFI_ERROR (CpuDriverEntryPoint);
   DEBUG ((DEBUG_INFO, "Shared Cpu Driver EP 0x%lx\n", (UINT64) CpuDriverEntryPoint));
 
 finish:
+  ZeroMem (&InitMmFoundationSvcArgs, sizeof(InitMmFoundationSvcArgs));
   InitMmFoundationSvcArgs.Arg0 = ARM_SVC_ID_SP_EVENT_COMPLETE_AARCH64;
   InitMmFoundationSvcArgs.Arg1 = Status;
   DelegatedEventLoop (&InitMmFoundationSvcArgs);
-  ASSERT_EFI_ERROR (0);
 }

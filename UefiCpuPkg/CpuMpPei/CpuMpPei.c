@@ -1,18 +1,14 @@
 /** @file
   CPU PEI Module installs CPU Multiple Processor PPI.
 
-  Copyright (c) 2015 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  Copyright (c) 2015 - 2019, Intel Corporation. All rights reserved.<BR>
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
 #include "CpuMpPei.h"
+
+extern EDKII_PEI_MP_SERVICES2_PPI            mMpServices2Ppi;
 
 //
 // CPU MP PPI to be installed
@@ -27,10 +23,17 @@ EFI_PEI_MP_SERVICES_PPI                mMpServicesPpi = {
   PeiWhoAmI,
 };
 
-EFI_PEI_PPI_DESCRIPTOR           mPeiCpuMpPpiDesc = {
-  (EFI_PEI_PPI_DESCRIPTOR_PPI | EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST),
-  &gEfiPeiMpServicesPpiGuid,
-  &mMpServicesPpi
+EFI_PEI_PPI_DESCRIPTOR           mPeiCpuMpPpiList[] = {
+  {
+    EFI_PEI_PPI_DESCRIPTOR_PPI,
+    &gEdkiiPeiMpServices2PpiGuid,
+    &mMpServices2Ppi
+  },
+  {
+    (EFI_PEI_PPI_DESCRIPTOR_PPI | EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST),
+    &gEfiPeiMpServicesPpiGuid,
+    &mMpServicesPpi
+  }
 };
 
 /**
@@ -427,6 +430,43 @@ GetGdtr (
 }
 
 /**
+  Migrates the Global Descriptor Table (GDT) to permanent memory.
+
+  @retval   EFI_SUCCESS           The GDT was migrated successfully.
+  @retval   EFI_OUT_OF_RESOURCES  The GDT could not be migrated due to lack of available memory.
+
+**/
+EFI_STATUS
+MigrateGdt (
+  VOID
+  )
+{
+  EFI_STATUS          Status;
+  UINTN               GdtBufferSize;
+  IA32_DESCRIPTOR     Gdtr;
+  VOID                *GdtBuffer;
+
+  AsmReadGdtr ((IA32_DESCRIPTOR *) &Gdtr);
+  GdtBufferSize = sizeof (IA32_SEGMENT_DESCRIPTOR) -1 + Gdtr.Limit + 1;
+
+  Status =  PeiServicesAllocatePool (
+              GdtBufferSize,
+              &GdtBuffer
+              );
+  ASSERT (GdtBuffer != NULL);
+  if (EFI_ERROR (Status)) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  GdtBuffer = ALIGN_POINTER (GdtBuffer, sizeof (IA32_SEGMENT_DESCRIPTOR));
+  CopyMem (GdtBuffer, (VOID *) Gdtr.Base, Gdtr.Limit + 1);
+  Gdtr.Base = (UINTN) GdtBuffer;
+  AsmWriteGdtr (&Gdtr);
+
+  return EFI_SUCCESS;
+}
+
+/**
   Initializes CPU exceptions handlers for the sake of stack switch requirement.
 
   This function is a wrapper of InitializeCpuExceptionHandlersEx. It's mainly
@@ -673,7 +713,7 @@ InitializeCpuMpWorker (
   //
   // Install CPU MP PPI
   //
-  Status = PeiServicesInstallPpi(&mPeiCpuMpPpiDesc);
+  Status = PeiServicesInstallPpi(mPeiCpuMpPpiList);
   ASSERT_EFI_ERROR (Status);
 
   return Status;

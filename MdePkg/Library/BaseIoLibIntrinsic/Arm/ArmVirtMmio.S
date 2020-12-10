@@ -1,13 +1,7 @@
 #
 #  Copyright (c) 2014-2018, Linaro Limited. All rights reserved.
 #
-#  This program and the accompanying materials are licensed and made available
-#  under the terms and conditions of the BSD License which accompanies this
-#  distribution.  The full text of the license may be found at
-#  http://opensource.org/licenses/bsd-license.php
-#
-#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 #
 
@@ -125,7 +119,8 @@ ASM_PFX(MmioWrite32Internal):
 //  @return The value read.
 //
 ASM_PFX(MmioRead64Internal):
-  ldrd    r0, r1, [r0]
+  ldr     r1, [r0, #4]
+  ldr     r0, [r0]
   dmb
   bx      lr
 
@@ -141,5 +136,6 @@ ASM_PFX(MmioRead64Internal):
 //
 ASM_PFX(MmioWrite64Internal):
   dmb     st
-  strd    r2, r3, [r0]
+  str     r2, [r0]
+  str     r3, [r0, #4]
   bx      lr

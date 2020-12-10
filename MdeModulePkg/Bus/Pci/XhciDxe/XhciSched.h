@@ -3,13 +3,7 @@
   This file contains the definition for XHCI host controller schedule routines.
 
 Copyright (c) 2011 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -17,6 +11,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #define _EFI_XHCI_SCHED_H_
 
 #define XHC_URB_SIG      SIGNATURE_32 ('U', 'S', 'B', 'R')
+#define XHC_INIT_DEVICE_SLOT_RETRIES 1
 
 //
 // Transfer types, used in URB to identify the transfer type
@@ -850,6 +845,34 @@ XhciDelAsyncIntTransfer (
 VOID
 XhciDelAllAsyncIntTransfers (
   IN USB_XHCI_INSTANCE    *Xhc
+  );
+
+/**
+  Insert a single asynchronous interrupt transfer for
+  the device and endpoint.
+
+  @param Xhc            The XHCI Instance
+  @param BusAddr        The logical device address assigned by UsbBus driver
+  @param EpAddr         Endpoint addrress
+  @param DevSpeed       The device speed
+  @param MaxPacket      The max packet length of the endpoint
+  @param DataLen        The length of data buffer
+  @param Callback       The function to call when data is transferred
+  @param Context        The context to the callback
+
+  @return Created URB or NULL
+
+**/
+URB *
+XhciInsertAsyncIntTransfer (
+  IN USB_XHCI_INSTANCE                  *Xhc,
+  IN UINT8                              BusAddr,
+  IN UINT8                              EpAddr,
+  IN UINT8                              DevSpeed,
+  IN UINTN                              MaxPacket,
+  IN UINTN                              DataLen,
+  IN EFI_ASYNC_USB_TRANSFER_CALLBACK    Callback,
+  IN VOID                               *Context
   );
 
 /**

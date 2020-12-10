@@ -3,13 +3,7 @@
   for Bootability, Revision 1.0.
 
 Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -83,7 +77,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 // Mass command timeout, refers to specification[USB20-9.2.6.1]
 //
 // USB2.0 Spec define the up-limit timeout 5s for all command. USB floppy,
-// USB CD-Rom and iPod devices are much slower than USB key when reponse
+// USB CD-Rom and iPod devices are much slower than USB key when response
 // most of commands, So we set 5s as timeout here.
 //
 #define USB_BOOT_GENERAL_CMD_TIMEOUT    (5 * USB_MASS_1_SECOND)
@@ -161,17 +155,7 @@ typedef struct {
   UINT8             TransferLen[2]; ///< Transfer length
   UINT8             Reserverd1;
   UINT8             Pad[2];
-} USB_BOOT_READ10_CMD;
-
-typedef struct {
-  UINT8             OpCode;
-  UINT8             Lun;
-  UINT8             Lba[4];
-  UINT8             Reserved0;
-  UINT8             TransferLen[2];
-  UINT8             Reserverd1;
-  UINT8             Pad[2];
-} USB_BOOT_WRITE10_CMD;
+} USB_BOOT_READ_WRITE_10_CMD;
 
 typedef struct {
   UINT8             OpCode;
@@ -229,7 +213,7 @@ typedef struct {
   This function get the parameters for the USB mass storage media,
   It is used both to initialize the media during the Start() phase
   of Driver Binding Protocol and to re-initialize it when the media is
-  changed. Althought the RemoveableMedia is unlikely to change,
+  changed. Although the RemoveableMedia is unlikely to change,
   it is also included here.
 
   @param  UsbMass                The device to retrieve disk gemotric.
@@ -292,65 +276,47 @@ UsbBootReadBlocks (
   );
 
 /**
-  Write some blocks to the device.
+  Read or write some blocks from the device.
 
-  @param  UsbMass                The USB mass storage device to write to
+  @param  UsbMass                The USB mass storage device to access
+  @param  Write                  TRUE for write operation.
   @param  Lba                    The start block number
-  @param  TotalBlock             Total block number to write
-  @param  Buffer                 Pointer to the source buffer for the data.
+  @param  TotalBlock             Total block number to read or write
+  @param  Buffer                 The buffer to read to or write from
 
-  @retval EFI_SUCCESS            Data are written into the buffer
-  @retval Others                 Failed to write all the data
+  @retval EFI_SUCCESS            Data are read into the buffer or writen into the device.
+  @retval Others                 Failed to read or write all the data
 
 **/
 EFI_STATUS
-UsbBootWriteBlocks (
-  IN  USB_MASS_DEVICE         *UsbMass,
-  IN  UINT32                  Lba,
-  IN  UINTN                   TotalBlock,
-  IN  UINT8                   *Buffer
+UsbBootReadWriteBlocks (
+  IN  USB_MASS_DEVICE       *UsbMass,
+  IN  BOOLEAN               Write,
+  IN  UINT32                Lba,
+  IN  UINTN                 TotalBlock,
+  IN OUT UINT8              *Buffer
   );
 
 /**
-  Read some blocks from the device by SCSI 16 byte cmd.
+  Read or write some blocks from the device by SCSI 16 byte cmd.
 
-  @param  UsbMass                The USB mass storage device to read from
+  @param  UsbMass                The USB mass storage device to access
+  @param  Write                  TRUE for write operation.
   @param  Lba                    The start block number
-  @param  TotalBlock             Total block number to read
-  @param  Buffer                 The buffer to read to
+  @param  TotalBlock             Total block number to read or write
+  @param  Buffer                 The buffer to read to or write from
 
-  @retval EFI_SUCCESS            Data are read into the buffer
-  @retval Others                 Failed to read all the data
-
+  @retval EFI_SUCCESS            Data are read into the buffer or writen into the device.
+  @retval Others                 Failed to read or write all the data
 **/
 EFI_STATUS
-UsbBootReadBlocks16 (
+UsbBootReadWriteBlocks16 (
   IN  USB_MASS_DEVICE       *UsbMass,
+  IN  BOOLEAN               Write,
   IN  UINT64                Lba,
   IN  UINTN                 TotalBlock,
-  OUT UINT8                 *Buffer
+  IN OUT UINT8              *Buffer
   );
-
-/**
-  Write some blocks to the device by SCSI 16 byte cmd.
-
-  @param  UsbMass                The USB mass storage device to write to
-  @param  Lba                    The start block number
-  @param  TotalBlock             Total block number to write
-  @param  Buffer                 Pointer to the source buffer for the data.
-
-  @retval EFI_SUCCESS            Data are written into the buffer
-  @retval Others                 Failed to write all the data
-
-**/
-EFI_STATUS
-UsbBootWriteBlocks16 (
-  IN  USB_MASS_DEVICE         *UsbMass,
-  IN  UINT64                  Lba,
-  IN  UINTN                   TotalBlock,
-  IN  UINT8                   *Buffer
-  );
-
 
 /**
   Use the USB clear feature control transfer to clear the endpoint stall condition.

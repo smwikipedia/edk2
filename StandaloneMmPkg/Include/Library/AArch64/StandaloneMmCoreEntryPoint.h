@@ -3,13 +3,7 @@
   phase on ARM platforms
 
 Copyright (c) 2017 - 2018, ARM Ltd. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -77,6 +71,7 @@ typedef RETURN_STATUS (*REGION_PERMISSION_UPDATE_FUNC) (
   and make further progress in the boot process.
 
   @param  ImageContext           Pointer to PE/COFF image context
+  @param  ImageBase              Base of image in memory
   @param  SectionHeaderOffset    Offset of PE/COFF image section header
   @param  NumberOfSections       Number of Sections
   @param  TextUpdater            Function to change code permissions
@@ -88,6 +83,7 @@ EFI_STATUS
 EFIAPI
 UpdateMmFoundationPeCoffPermissions (
   IN  CONST PE_COFF_LOADER_IMAGE_CONTEXT      *ImageContext,
+  IN  EFI_PHYSICAL_ADDRESS                    ImageBase,
   IN  UINT32                                  SectionHeaderOffset,
   IN  CONST  UINT16                           NumberOfSections,
   IN  REGION_PERMISSION_UPDATE_FUNC           TextUpdater,
@@ -104,6 +100,7 @@ UpdateMmFoundationPeCoffPermissions (
 
   @param  TeData                 Pointer to PE/COFF image data
   @param  ImageContext           Pointer to PE/COFF image context
+  @param  ImageBase              Pointer to ImageBase variable
   @param  SectionHeaderOffset    Offset of PE/COFF image section header
   @param  NumberOfSections       Number of Sections
 
@@ -113,6 +110,7 @@ EFIAPI
 GetStandaloneMmCorePeCoffSections (
   IN        VOID                            *TeData,
   IN  OUT   PE_COFF_LOADER_IMAGE_CONTEXT    *ImageContext,
+      OUT   EFI_PHYSICAL_ADDRESS            *ImageBase,
   IN  OUT   UINT32                          *SectionHeaderOffset,
   IN  OUT   UINT16                          *NumberOfSections
   );

@@ -1,13 +1,7 @@
 /** @file
 
 Copyright (c) 2007, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 
 **/
@@ -224,7 +218,7 @@ EFI_DEBUGGER_COMMAND_SET  mDebuggerCommandSet[] = {
     L"TRACE              - show/clear trace instruction branch\n",
     L"The trace command will show or clear the latest instruction branch.\n\n",
     L"TRACE [c]\n"
-    L"  (No Argument) - Show current instrcution branch\n"
+    L"  (No Argument) - Show current instruction branch\n"
     L"  c             - Clear current instruction branch\n",
     L"",
     {SCAN_NULL, CHAR_NULL},

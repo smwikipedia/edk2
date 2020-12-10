@@ -2,19 +2,14 @@
 *
 *  Copyright (c) 2011-2014, ARM Limited. All rights reserved.
 *
-*  This program and the accompanying materials
-*  are licensed and made available under the terms and conditions of the BSD License
-*  which accompanies this distribution.  The full text of the license may be found at
-*  http://opensource.org/licenses/bsd-license.php
-*
-*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+*  SPDX-License-Identifier: BSD-2-Clause-Patent
 *
 **/
 
 #include <PiPei.h>
 #include <Pi/PiBootMode.h>
 
+#include <Library/PeCoffLib.h>
 #include <Library/PrePiLib.h>
 #include <Library/PrintLib.h>
 #include <Library/PrePiHobListPointerLib.h>
@@ -80,7 +75,7 @@ PrePiMain (
   BuildStackHob (StacksBase, StacksSize);
 
   //TODO: Call CpuPei as a library
-  BuildCpuHob (PcdGet8 (PcdPrePiCpuMemorySize), PcdGet8 (PcdPrePiCpuIoSize));
+  BuildCpuHob (ArmGetPhysicalAddressBits (), PcdGet8 (PcdPrePiCpuIoSize));
 
   // Set the Boot Mode
   SetBootMode (BOOT_WITH_FULL_CONFIGURATION);
@@ -133,4 +128,38 @@ CEntryPoint (
 
   // DXE Core should always load and never return
   ASSERT (FALSE);
+}
+
+VOID
+RelocatePeCoffImage (
+  IN  EFI_PEI_FV_HANDLE             FwVolHeader,
+  IN  PE_COFF_LOADER_READ_FILE      ImageRead
+  )
+{
+  EFI_PEI_FILE_HANDLE           FileHandle;
+  VOID                          *SectionData;
+  PE_COFF_LOADER_IMAGE_CONTEXT  ImageContext;
+  EFI_STATUS                    Status;
+
+  FileHandle = NULL;
+  Status = FfsFindNextFile (EFI_FV_FILETYPE_SECURITY_CORE, FwVolHeader,
+             &FileHandle);
+  ASSERT_EFI_ERROR (Status);
+
+  Status = FfsFindSectionData (EFI_SECTION_PE32, FileHandle, &SectionData);
+  if (EFI_ERROR (Status)) {
+    Status = FfsFindSectionData (EFI_SECTION_TE, FileHandle, &SectionData);
+  }
+  ASSERT_EFI_ERROR (Status);
+
+  ZeroMem (&ImageContext, sizeof ImageContext);
+
+  ImageContext.Handle       = (EFI_HANDLE)SectionData;
+  ImageContext.ImageRead    = ImageRead;
+  PeCoffLoaderGetImageInfo (&ImageContext);
+
+  if (ImageContext.ImageAddress != (UINTN)SectionData) {
+    ImageContext.ImageAddress = (UINTN)SectionData;
+    PeCoffLoaderRelocateImage (&ImageContext);
+  }
 }

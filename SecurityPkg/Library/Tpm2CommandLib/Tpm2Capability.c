@@ -2,13 +2,7 @@
   Implement TPM2 Capability related command.
 
 Copyright (c) 2013 - 2018, Intel Corporation. All rights reserved. <BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -45,6 +39,8 @@ typedef struct {
 
 #pragma pack()
 
+#define TPMA_CC_COMMANDINDEX_MASK  0x2000FFFF
+
 /**
   This command returns various information regarding the TPM and its current state.
 
@@ -59,7 +55,7 @@ typedef struct {
   NOTE:
   To simplify this function, leave returned CapabilityData for caller to unpack since there are
   many capability categories and only few categories will be used in firmware. It means the caller
-  need swap the byte order for the feilds in CapabilityData.
+  need swap the byte order for the fields in CapabilityData.
 
   @param[in]  Capability         Group selection; determines the format of the response.
   @param[in]  Property           Further definition of information.
@@ -125,7 +121,7 @@ Tpm2GetCapability (
   //
   *MoreData = RecvBuffer.MoreData;
   //
-  // Does not unpack all possiable property here, the caller should unpack it and note the byte order.
+  // Does not unpack all possible property here, the caller should unpack it and note the byte order.
   //
   CopyMem (CapabilityData, &RecvBuffer.CapabilityData, RecvBufferSize - sizeof (TPM2_RESPONSE_HEADER) - sizeof (UINT8));
 
@@ -630,6 +626,44 @@ Tpm2GetCapabilityAlgorithmSet (
     return Status;
   }
   *AlgorithmSet = SwapBytes32 (TpmCap.data.tpmProperties.tpmProperty->value);
+
+  return EFI_SUCCESS;
+}
+
+/**
+  This function will query if the command is supported.
+
+  @param[In]  Command         TPM_CC command starts from TPM_CC_FIRST.
+  @param[out] IsCmdImpl       The command is supported or not.
+
+  @retval EFI_SUCCESS            Operation completed successfully.
+  @retval EFI_DEVICE_ERROR       The command was unsuccessful.
+**/
+EFI_STATUS
+EFIAPI
+Tpm2GetCapabilityIsCommandImplemented (
+  IN      TPM_CC      Command,
+  OUT     BOOLEAN     *IsCmdImpl
+  )
+{
+  TPMS_CAPABILITY_DATA    TpmCap;
+  TPMI_YES_NO             MoreData;
+  EFI_STATUS              Status;
+  UINT32                  Attribute;
+
+  Status = Tpm2GetCapability (
+             TPM_CAP_COMMANDS,
+             Command,
+             1,
+             &MoreData,
+             &TpmCap
+             );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  CopyMem (&Attribute, &TpmCap.data.command.commandAttributes[0], sizeof (UINT32));
+  *IsCmdImpl = (Command == (SwapBytes32(Attribute) & TPMA_CC_COMMANDINDEX_MASK));
 
   return EFI_SUCCESS;
 }

@@ -3,13 +3,7 @@
 
   Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
 
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php.
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -17,7 +11,7 @@
 
 
 /**
-  Flush the previous configration using the new station Ip address.
+  Flush the previous configuration using the new station Ip address.
 
   @param[in]   Private        The pointer to the PxeBc private data.
   @param[in]   StationIp      The pointer to the station Ip address.
@@ -142,7 +136,7 @@ PxeBcCommonNotify (
 
   @param  Mode           The pointer to EFI_PXE_BASE_CODE_MODE.
   @param  Ip4Addr        The Ip4 address for resolution.
-  @param  MacAddress     The resoluted MAC address if the resolution is successful.
+  @param  MacAddress     The resolved MAC address if the resolution is successful.
                          The value is undefined if the resolution fails.
 
   @retval TRUE           Found an matched entry.
@@ -1182,7 +1176,7 @@ PxeBcUdp4Read (
          Token->Status == EFI_NOT_READY &&
          EFI_ERROR (gBS->CheckEvent (TimeoutEvent))) {
     //
-    // Poll the token utill reply/ICMPv6 error message received or timeout.
+    // Poll the token until reply/ICMPv6 error message received or timeout.
     //
     Udp4->Poll (Udp4);
     if (Token->Status == EFI_ICMP_ERROR ||
@@ -1286,7 +1280,7 @@ PxeBcUdp6Read (
          Token->Status == EFI_NOT_READY &&
          EFI_ERROR (gBS->CheckEvent (TimeoutEvent))) {
     //
-    // Poll the token utill reply/ICMPv6 error message received or timeout.
+    // Poll the token until reply/ICMPv6 error message received or timeout.
     //
     Udp6->Poll (Udp6);
     if (Token->Status == EFI_ICMP_ERROR ||
@@ -1510,14 +1504,14 @@ CalcElapsedTime (
   //
   ZeroMem (&Time, sizeof (EFI_TIME));
   gRT->GetTime (&Time, NULL);
-  CurrentStamp = (UINT64)
-    (
-      ((((((Time.Year - 1900) * 360 +
-       (Time.Month - 1)) * 30 +
-       (Time.Day - 1)) * 24 + Time.Hour) * 60 +
-       Time.Minute) * 60 + Time.Second) * 100
-       + DivU64x32(Time.Nanosecond, 10000000)
-    );
+  CurrentStamp = MultU64x32 (
+                   ((((UINT32)(Time.Year - 1900) * 360 + (Time.Month - 1) * 30 + (Time.Day - 1)) * 24 + Time.Hour) * 60 + Time.Minute) * 60 + Time.Second,
+                   100
+                   ) +
+                 DivU64x32 (
+                   Time.Nanosecond,
+                   10000000
+                   );
 
   //
   // Sentinel value of 0 means that this is the first DHCP packet that we are

@@ -2,53 +2,13 @@
 //  Copyright (c) 2011-2013, ARM Limited. All rights reserved.
 //  Copyright (c) 2015-2016, Linaro Limited. All rights reserved.
 //
-//  This program and the accompanying materials
-//  are licensed and made available under the terms and conditions of the BSD License
-//  which accompanies this distribution.  The full text of the license may be found at
-//  http://opensource.org/licenses/bsd-license.php
-//
-//  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+//  SPDX-License-Identifier: BSD-2-Clause-Patent
 //
 //
 
 #include <AsmMacroIoLibV8.h>
 
 ASM_FUNC(_ModuleEntryPoint)
-  //
-  // We are built as a ET_DYN PIE executable, so we need to process all
-  // relative relocations regardless of whether or not we are executing from
-  // the same offset we were linked at. This is only possible if we are
-  // running from RAM.
-  //
-  adr   x8, __reloc_base
-  adr   x9, __reloc_start
-  adr   x10, __reloc_end
-
-.Lreloc_loop:
-  cmp   x9, x10
-  bhs   .Lreloc_done
-
-  //
-  // AArch64 uses the ELF64 RELA format, which means each entry in the
-  // relocation table consists of
-  //
-  //   UINT64 offset          : the relative offset of the value that needs to
-  //                            be relocated
-  //   UINT64 info            : relocation type and symbol index (the latter is
-  //                            not used for R_AARCH64_RELATIVE relocations)
-  //   UINT64 addend          : value to be added to the value being relocated
-  //
-  ldp   x11, x12, [x9], #24   // read offset into x11 and info into x12
-  cmp   x12, #0x403           // check info == R_AARCH64_RELATIVE?
-  bne   .Lreloc_loop          // not a relative relocation? then skip
-
-  ldr   x12, [x9, #-8]        // read addend into x12
-  add   x12, x12, x8          // add reloc base to addend to get relocated value
-  str   x12, [x11, x8]        // write relocated value at offset
-  b     .Lreloc_loop
-.Lreloc_done:
-
   bl    ASM_PFX(DiscoverDramFromDt)
 
   // Get ID of this CPU in Multicore system
@@ -121,6 +81,9 @@ _GetStackBase:
   mov   x1, x21
   mov   x2, x22
 
+  // Set the frame pointer to NULL so any backtraces terminate here
+  mov   x29, xzr
+
   // Jump to PrePiCore C code
   //    x0 = MpId
   //    x1 = UefiMemoryBase
@@ -174,14 +137,23 @@ ASM_PFX(DiscoverDramFromDt):
   str   x7, [x9]
 
   //
+  // The runtime address may be different from the link time address so fix
+  // up the PE/COFF relocations. Since we are calling a C function, use the
+  // window at the beginning of the FD image as a temp stack.
+  //
+  mov   x0, x7
+  adr   x1, PeCoffLoaderImageReadFromMemory
+  mov   sp, x7
+  bl    RelocatePeCoffImage
+
+  //
   // Discover the memory size and offset from the DTB, and record in the
   // respective PCDs. This will also return false if a corrupt DTB is
-  // encountered. Since we are calling a C function, use the window at the
-  // beginning of the FD image as a temp stack.
+  // encountered.
   //
+  mov   x0, x28
   adr   x1, PcdGet64 (PcdSystemMemoryBase)
   adr   x2, PcdGet64 (PcdSystemMemorySize)
-  mov   sp, x7
   bl    FindMemnode
   cbz   x0, .Lout
 

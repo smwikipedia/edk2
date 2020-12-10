@@ -4,18 +4,15 @@
 #  I/O Library that uses compiler intrinsics to perform IN and OUT instructions
 #  for IA-32 and x64.  On IPF, I/O port requests are translated into MMIO requests.
 #  MMIO requests are forwarded directly to memory.  For EBC, I/O port requests
-#  ASSERT().
+#  ASSERT(). For ARM, AARCH64 and RISCV64, this I/O library only provides non I/O
+#  read and write.
 #
 #  Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
 #  Portions copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
 #  Copyright (c) 2017, AMD Incorporated. All rights reserved.<BR>
+#  Portions Copyright (c) 2020, Hewlett Packard Enterprise Development LP. All rights reserved.<BR>
 #
-#  This program and the accompanying materials
-#  are licensed and made available under the terms and conditions of the BSD License
-#  which accompanies this distribution. The full text of the license may be found at
-#  http://opensource.org/licenses/bsd-license.php.
-#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 ##
 
@@ -30,7 +27,7 @@
 
 
 #
-#  VALID_ARCHITECTURES           = IA32 X64 EBC IPF ARM AARCH64
+#  VALID_ARCHITECTURES           = IA32 X64 EBC ARM AARCH64 RISCV64
 #
 
 [Sources]
@@ -41,14 +38,12 @@
 [Sources.IA32]
   IoLibGcc.c    | GCC
   IoLibMsc.c    | MSFT
-  IoLibIcc.c    | INTEL
   IoLib.c
   Ia32/IoFifo.nasm
 
 [Sources.X64]
   IoLibGcc.c    | GCC
   IoLibMsc.c    | MSFT
-  IoLibIcc.c    | INTEL
   IoLib.c
   X64/IoFifo.nasm
 
@@ -56,14 +51,14 @@
   IoLibEbc.c
   IoLib.c
 
-[Sources.IPF]
-  IoLibIpf.c
-
 [Sources.ARM]
-  IoLibArm.c
+  IoLibNoIo.c
 
 [Sources.AARCH64]
-  IoLibArm.c
+  IoLibNoIo.c
+
+[Sources.RISCV64]
+  IoLibNoIo.c
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -71,10 +66,4 @@
 [LibraryClasses]
   DebugLib
   BaseLib
-
-[LibraryClasses.IPF]
-  PcdLib
-
-[Pcd.IPF]
-  gEfiMdePkgTokenSpaceGuid.PcdIoBlockBaseAddressForIpf  ## SOMETIMES_CONSUMES
 

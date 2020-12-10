@@ -1,11 +1,5 @@
 # Copyright (c) 2017 - 2018, Intel Corporation. All rights reserved.<BR>
-# This program and the accompanying materials
-# are licensed and made available under the terms and conditions of the BSD License
-# which accompanies this distribution.  The full text of the license may be found at
-# http://opensource.org/licenses/bsd-license.php
-#
-# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 
 #
 # This file is used to collect the Variable checking information
@@ -22,7 +16,7 @@ from Common.Misc import *
 import collections
 import Common.DataType as DataType
 
-var_info = collections.namedtuple("uefi_var", "pcdindex,pcdname,defaultstoragename,skuname,var_name, var_guid, var_offset,var_attribute,pcd_default_value, default_value, data_type")
+var_info = collections.namedtuple("uefi_var", "pcdindex,pcdname,defaultstoragename,skuname,var_name, var_guid, var_offset,var_attribute,pcd_default_value, default_value, data_type,PcdDscLine,StructurePcd")
 NvStorageHeaderSize = 28
 VariableHeaderSize = 32
 
@@ -56,6 +50,7 @@ class VariableMgr(object):
         value_str += ",".join(default_var_bin_strip)
         value_str += "}"
         return value_str
+
     def combine_variable(self):
         indexedvarinfo = collections.OrderedDict()
         for item in self.VarInfo:
@@ -64,38 +59,39 @@ class VariableMgr(object):
             indexedvarinfo[(item.skuname, item.defaultstoragename, item.var_name, item.var_guid)].append(item)
         for key in indexedvarinfo:
             sku_var_info_offset_list = indexedvarinfo[key]
-            if len(sku_var_info_offset_list) == 1:
-                continue
-            newvalue = {}
-            for item in sku_var_info_offset_list:
-                data_type = item.data_type
-                value_list = item.default_value.strip("{").strip("}").split(",")
-                if data_type in DataType.TAB_PCD_NUMERIC_TYPES:
-                    data_flag = DataType.PACK_CODE_BY_SIZE[MAX_SIZE_TYPE[data_type]]
-                    data = value_list[0]
-                    value_list = []
-                    for data_byte in pack(data_flag, int(data, 16) if data.upper().startswith('0X') else int(data)):
-                        value_list.append(hex(unpack("B", data_byte)[0]))
-                newvalue[int(item.var_offset, 16) if item.var_offset.upper().startswith("0X") else int(item.var_offset)] = value_list
-            try:
-                newvaluestr = "{" + ",".join(VariableMgr.assemble_variable(newvalue)) +"}"
-            except:
-                EdkLogger.error("build", AUTOGEN_ERROR, "Variable offset conflict in PCDs: %s \n" % (" and ".join(item.pcdname for item in sku_var_info_offset_list)))
-            n = sku_var_info_offset_list[0]
-            indexedvarinfo[key] =  [var_info(n.pcdindex, n.pcdname, n.defaultstoragename, n.skuname, n.var_name, n.var_guid, "0x00", n.var_attribute, newvaluestr, newvaluestr, DataType.TAB_VOID)]
-        self.VarInfo = [item[0] for item in indexedvarinfo.values()]
+            sku_var_info_offset_list.sort(key=lambda x:x.PcdDscLine)
+            FirstOffset = int(sku_var_info_offset_list[0].var_offset, 16) if sku_var_info_offset_list[0].var_offset.upper().startswith("0X") else int(sku_var_info_offset_list[0].var_offset)
+            fisrtvalue_list = sku_var_info_offset_list[0].default_value.strip("{").strip("}").split(",")
+            firstdata_type = sku_var_info_offset_list[0].data_type
+            if firstdata_type in DataType.TAB_PCD_NUMERIC_TYPES:
+                fisrtdata_flag = DataType.PACK_CODE_BY_SIZE[MAX_SIZE_TYPE[firstdata_type]]
+                fisrtdata = fisrtvalue_list[0]
+                fisrtvalue_list = []
+                pack_data = pack(fisrtdata_flag, int(fisrtdata, 0))
+                for data_byte in range(len(pack_data)):
+                    fisrtvalue_list.append(hex(unpack("B", pack_data[data_byte:data_byte + 1])[0]))
+            newvalue_list = ["0x00"] * FirstOffset + fisrtvalue_list
 
-    @staticmethod
-    def assemble_variable(valuedict):
-        ordered_valuedict_keys = sorted(valuedict.keys())
-        var_value = []
-        for current_valuedict_key in ordered_valuedict_keys:
-            if current_valuedict_key < len(var_value):
-                raise
-            for _ in xrange(current_valuedict_key - len(var_value)):
-                var_value.append('0x00')
-            var_value += valuedict[current_valuedict_key]
-        return var_value
+            for var_item in sku_var_info_offset_list[1:]:
+                CurOffset = int(var_item.var_offset, 16) if var_item.var_offset.upper().startswith("0X") else int(var_item.var_offset)
+                CurvalueList = var_item.default_value.strip("{").strip("}").split(",")
+                Curdata_type = var_item.data_type
+                if Curdata_type in DataType.TAB_PCD_NUMERIC_TYPES:
+                    data_flag = DataType.PACK_CODE_BY_SIZE[MAX_SIZE_TYPE[Curdata_type]]
+                    data = CurvalueList[0]
+                    CurvalueList = []
+                    pack_data = pack(data_flag, int(data, 0))
+                    for data_byte in range(len(pack_data)):
+                        CurvalueList.append(hex(unpack("B", pack_data[data_byte:data_byte + 1])[0]))
+                if CurOffset > len(newvalue_list):
+                    newvalue_list = newvalue_list + ["0x00"] * (CurOffset - len(newvalue_list)) + CurvalueList
+                else:
+                    newvalue_list[CurOffset : CurOffset + len(CurvalueList)] = CurvalueList
+
+            newvaluestr =  "{" + ",".join(newvalue_list) +"}"
+            n = sku_var_info_offset_list[0]
+            indexedvarinfo[key] =  [var_info(n.pcdindex, n.pcdname, n.defaultstoragename, n.skuname, n.var_name, n.var_guid, "0x00", n.var_attribute, newvaluestr, newvaluestr, DataType.TAB_VOID,n.PcdDscLine,n.StructurePcd)]
+        self.VarInfo = [item[0] for item in list(indexedvarinfo.values())]
 
     def process_variable_data(self):
 
@@ -123,8 +119,8 @@ class VariableMgr(object):
             default_data_buffer = VariableMgr.PACK_VARIABLES_DATA(default_sku_default.default_value, default_sku_default.data_type, tail)
 
             default_data_array = ()
-            for item in default_data_buffer:
-                default_data_array += unpack("B", item)
+            for item in range(len(default_data_buffer)):
+                default_data_array += unpack("B", default_data_buffer[item:item + 1])
 
             var_data[(DataType.TAB_DEFAULT, DataType.TAB_DEFAULT_STORES_DEFAULT)][index] = (default_data_buffer, sku_var_info[(DataType.TAB_DEFAULT, DataType.TAB_DEFAULT_STORES_DEFAULT)])
 
@@ -141,8 +137,8 @@ class VariableMgr(object):
                 others_data_buffer = VariableMgr.PACK_VARIABLES_DATA(other_sku_other.default_value, other_sku_other.data_type, tail)
 
                 others_data_array = ()
-                for item in others_data_buffer:
-                    others_data_array += unpack("B", item)
+                for item in range(len(others_data_buffer)):
+                    others_data_array += unpack("B", others_data_buffer[item:item + 1])
 
                 data_delta = VariableMgr.calculate_delta(default_data_array, others_data_array)
 
@@ -158,7 +154,7 @@ class VariableMgr(object):
             return []
 
         pcds_default_data = var_data.get((DataType.TAB_DEFAULT, DataType.TAB_DEFAULT_STORES_DEFAULT), {})
-        NvStoreDataBuffer = ""
+        NvStoreDataBuffer = bytearray()
         var_data_offset = collections.OrderedDict()
         offset = NvStorageHeaderSize
         for default_data, default_info in pcds_default_data.values():
@@ -185,7 +181,7 @@ class VariableMgr(object):
 
         nv_default_part = VariableMgr.AlignData(VariableMgr.PACK_DEFAULT_DATA(0, 0, VariableMgr.unpack_data(variable_storage_header_buffer+NvStoreDataBuffer)), 8)
 
-        data_delta_structure_buffer = ""
+        data_delta_structure_buffer = bytearray()
         for skuname, defaultstore in var_data:
             if (skuname, defaultstore) == (DataType.TAB_DEFAULT, DataType.TAB_DEFAULT_STORES_DEFAULT):
                 continue
@@ -216,8 +212,8 @@ class VariableMgr(object):
     @staticmethod
     def unpack_data(data):
         final_data = ()
-        for item in data:
-            final_data += unpack("B", item)
+        for item in range(len(data)):
+            final_data += unpack("B", data[item:item + 1])
         return final_data
 
     @staticmethod
@@ -285,7 +281,7 @@ class VariableMgr(object):
 
     @staticmethod
     def PACK_VARIABLES_DATA(var_value,data_type, tail = None):
-        Buffer = ""
+        Buffer = bytearray()
         data_len = 0
         if data_type == DataType.TAB_VOID:
             for value_char in var_value.strip("{").strip("}").split(","):
@@ -315,7 +311,7 @@ class VariableMgr(object):
 
     @staticmethod
     def PACK_DEFAULT_DATA(defaultstoragename, skuid, var_value):
-        Buffer = ""
+        Buffer = bytearray()
         Buffer += pack("=L", 4+8+8)
         Buffer += pack("=Q", int(skuid))
         Buffer += pack("=Q", int(defaultstoragename))
@@ -340,7 +336,7 @@ class VariableMgr(object):
     def PACK_DELTA_DATA(self, skuname, defaultstoragename, delta_list):
         skuid = self.GetSkuId(skuname)
         defaultstorageid = self.GetDefaultStoreId(defaultstoragename)
-        Buffer = ""
+        Buffer = bytearray()
         Buffer += pack("=L", 4+8+8)
         Buffer += pack("=Q", int(skuid))
         Buffer += pack("=Q", int(defaultstorageid))
@@ -363,7 +359,7 @@ class VariableMgr(object):
 
     @staticmethod
     def PACK_VARIABLE_NAME(var_name):
-        Buffer = ""
+        Buffer = bytearray()
         for name_char in var_name.strip("{").strip("}").split(","):
             Buffer += pack("=B", int(name_char, 16))
 

@@ -3,13 +3,7 @@
 #
 # Copyright (c) 2008 - 2018, Intel Corporation. All rights reserved.<BR>
 # (C) Copyright 2015-2018 Hewlett Packard Enterprise Development LP<BR>
-# This program and the accompanying materials
-# are licensed and made available under the terms and conditions of the BSD License
-# which accompanies this distribution.  The full text of the license may be found at
-# http://opensource.org/licenses/bsd-license.php
-#
-# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 
 ##
@@ -29,22 +23,24 @@ import Common.GlobalData as GlobalData
 from CommonDataClass.DataClass import *
 from Common.DataType import *
 from Common.StringUtils import *
-from Common.Misc import GuidStructureStringToGuidString, CheckPcdDatum, PathClass, AnalyzePcdData, AnalyzeDscPcd, AnalyzePcdExpression, ParseFieldValue
+from Common.Misc import GuidStructureStringToGuidString, CheckPcdDatum, PathClass, AnalyzePcdData, AnalyzeDscPcd, AnalyzePcdExpression, ParseFieldValue, StructPattern
 from Common.Expression import *
 from CommonDataClass.Exceptions import *
 from Common.LongFilePathSupport import OpenLongFilePath as open
 from collections import defaultdict
 from .MetaFileTable import MetaFileStorage
 from .MetaFileCommentParser import CheckInfComment
+from Common.DataType import TAB_COMMENT_EDK_START, TAB_COMMENT_EDK_END
 
 ## RegEx for finding file versions
 hexVersionPattern = re.compile(r'0[xX][\da-f-A-F]{5,8}')
 decVersionPattern = re.compile(r'\d+\.\d+')
+CODEPattern = re.compile(r"{CODE\([a-fA-F0-9Xx\{\},\s]*\)}")
 
 ## A decorator used to parse macro definition
 def ParseMacro(Parser):
     def MacroParser(self):
-        Match = gMacroDefPattern.match(self._CurrentLine)
+        Match = GlobalData.gMacroDefPattern.match(self._CurrentLine)
         if not Match:
             # Not 'DEFINE/EDK_GLOBAL' statement, call decorated method
             Parser(self)
@@ -65,7 +61,7 @@ def ParseMacro(Parser):
             EdkLogger.error('Parser', FORMAT_INVALID, "%s can only be defined via environment variable" % Name,
                             ExtraData=self._CurrentLine, File=self.MetaFile, Line=self._LineIndex + 1)
         # Only upper case letters, digit and '_' are allowed
-        if not gMacroNamePattern.match(Name):
+        if not GlobalData.gMacroNamePattern.match(Name):
             EdkLogger.error('Parser', FORMAT_INVALID, "The macro name must be in the pattern [A-Z][A-Z0-9_]*",
                             ExtraData=self._CurrentLine, File=self.MetaFile, Line=self._LineIndex + 1)
 
@@ -164,6 +160,7 @@ class MetaFileParser(object):
         self.MetaFile = FilePath
         self._FileDir = self.MetaFile.Dir
         self._Defines = {}
+        self._Packages = []
         self._FileLocalMacros = {}
         self._SectionsMacroDict = defaultdict(dict)
 
@@ -190,6 +187,10 @@ class MetaFileParser(object):
         self._Version = 0
         self._GuidDict = {}  # for Parser PCD value {GUID(gTokeSpaceGuidName)}
 
+        self._PcdCodeValue = ""
+        self._PcdDataTypeCODE = False
+        self._CurrentPcdName = ""
+
     ## Store the parsed data in table
     def _Store(self, *Args):
         return self._Table.Insert(*Args)
@@ -205,9 +206,7 @@ class MetaFileParser(object):
     ## Set parsing complete flag in both class and table
     def _Done(self):
         self._Finished = True
-        ## Do not set end flag when processing included files
-        if self._From == -1:
-            self._Table.SetEndFlag()
+        self._Table.SetEndFlag()
 
     def _PostProcess(self):
         self._PostProcessed = True
@@ -240,13 +239,7 @@ class MetaFileParser(object):
             DataInfo = (DataInfo,)
 
         # Parse the file first, if necessary
-        if not self._Finished:
-            if self._RawTable.IsIntegrity():
-                self._Finished = True
-            else:
-                self._Table = self._RawTable
-                self._PostProcessed = False
-                self.Start()
+        self.StartParse()
 
         # No specific ARCH or Platform given, use raw data
         if self._RawTable and (len(DataInfo) == 1 or DataInfo[1] is None):
@@ -258,6 +251,14 @@ class MetaFileParser(object):
 
         return self._FilterRecordList(self._Table.Query(*DataInfo), DataInfo[1])
 
+    def StartParse(self):
+        if not self._Finished:
+            if self._RawTable.IsIntegrity():
+                self._Finished = True
+            else:
+                self._Table = self._RawTable
+                self._PostProcessed = False
+                self.Start()
     ## Data parser for the common format in different type of file
     #
     #   The common format in the meatfile is like
@@ -328,6 +329,7 @@ class MetaFileParser(object):
                 S1 = ItemList[1].upper()
             else:
                 S1 = TAB_ARCH_COMMON
+            S1 = ReplaceMacro(S1, self._Macros)
             ArchList.add(S1)
 
             # S2 may be Platform or ModuleType
@@ -350,6 +352,13 @@ class MetaFileParser(object):
                             File=self.MetaFile, Line=self._LineIndex + 1, ExtraData=self._CurrentLine)
         # If the section information is needed later, it should be stored in database
         self._ValueList[0] = self._SectionName
+
+    ## [packages] section parser
+    @ParseMacro
+    def _PackageParser(self):
+        self._CurrentLine = CleanString(self._CurrentLine)
+        self._Packages.append(self._CurrentLine)
+        self._ValueList[0] = self._CurrentLine
 
     ## [defines] section parser
     @ParseMacro
@@ -432,7 +441,7 @@ class MetaFileParser(object):
         ScopeKey = tuple(ScopeKey)
         #
         # DecParser SectionType is a list, will contain more than one item only in Pcd Section
-        # As Pcd section macro usage is not alllowed, so here it is safe
+        # As Pcd section macro usage is not allowed, so here it is safe
         #
         if isinstance(self, DecParser):
             SectionDictKey = self._SectionType[0], ScopeKey
@@ -480,6 +489,39 @@ class MetaFileParser(object):
         Macros.update(SpeSpeMacroDict)
 
         return Macros
+
+    def ProcessMultipleLineCODEValue(self,Content):
+        CODEBegin = False
+        CODELine = ""
+        continuelinecount = 0
+        newContent = []
+        for Index in range(0, len(Content)):
+            Line = Content[Index]
+            if CODEBegin:
+                CODELine = CODELine + Line
+                continuelinecount +=1
+                if ")}" in Line:
+                    newContent.append(CODELine)
+                    for _ in range(continuelinecount):
+                        newContent.append("")
+                    CODEBegin = False
+                    CODELine = ""
+                    continuelinecount = 0
+            else:
+                if not Line:
+                    newContent.append(Line)
+                    continue
+                if "{CODE(" not in Line:
+                    newContent.append(Line)
+                    continue
+                elif CODEPattern.findall(Line):
+                    newContent.append(Line)
+                    continue
+                else:
+                    CODEBegin = True
+                    CODELine = Line
+
+        return newContent
 
     _SectionParser = {}
 
@@ -537,7 +579,8 @@ class InfParser(MetaFileParser):
         NmakeLine = ''
         Content = ''
         try:
-            Content = open(str(self.MetaFile), 'r').readlines()
+            with open(str(self.MetaFile), 'r') as File:
+                Content = File.readlines()
         except:
             EdkLogger.error("Parser", FILE_READ_FAILURE, ExtraData=self.MetaFile)
 
@@ -561,10 +604,10 @@ class InfParser(MetaFileParser):
                     SectionComments.extend(Comments)
                     Comments = []
                 continue
-            if Line.find(DataType.TAB_COMMENT_EDK_START) > -1:
+            if Line.find(TAB_COMMENT_EDK_START) > -1:
                 IsFindBlockComment = True
                 continue
-            if Line.find(DataType.TAB_COMMENT_EDK_END) > -1:
+            if Line.find(TAB_COMMENT_EDK_END) > -1:
                 IsFindBlockComment = False
                 continue
             if IsFindBlockComment:
@@ -684,18 +727,6 @@ class InfParser(MetaFileParser):
                 Value = self._ValueList[Index]
                 if not Value:
                     continue
-
-                if Value.upper().find('$(EFI_SOURCE)\Edk'.upper()) > -1 or Value.upper().find('$(EFI_SOURCE)/Edk'.upper()) > -1:
-                    Value = '$(EDK_SOURCE)' + Value[17:]
-                if Value.find('$(EFI_SOURCE)') > -1 or Value.find('$(EDK_SOURCE)') > -1:
-                    pass
-                elif Value.startswith('.'):
-                    pass
-                elif Value.startswith('$('):
-                    pass
-                else:
-                    Value = '$(EFI_SOURCE)/' + Value
-
                 self._ValueList[Index] = ReplaceMacro(Value, Macros)
 
     ## Parse [Sources] section
@@ -767,9 +798,13 @@ class InfParser(MetaFileParser):
         if self._ValueList[2] != '':
             InfPcdValueList = GetSplitValueList(TokenList[1], TAB_VALUE_SPLIT, 1)
             if InfPcdValueList[0] in ['True', 'true', 'TRUE']:
-                self._ValueList[2] = TokenList[1].replace(InfPcdValueList[0], '1', 1);
+                self._ValueList[2] = TokenList[1].replace(InfPcdValueList[0], '1', 1)
             elif InfPcdValueList[0] in ['False', 'false', 'FALSE']:
-                self._ValueList[2] = TokenList[1].replace(InfPcdValueList[0], '0', 1);
+                self._ValueList[2] = TokenList[1].replace(InfPcdValueList[0], '0', 1)
+            elif isinstance(InfPcdValueList[0], str) and InfPcdValueList[0].find('$(') >= 0:
+                Value = ReplaceExprMacro(InfPcdValueList[0],self._Macros)
+                if Value != '0':
+                    self._ValueList[2] = Value
         if (self._ValueList[0], self._ValueList[1]) not in self.PcdsDict:
             self.PcdsDict[self._ValueList[0], self._ValueList[1]] = self._SectionType
         elif self.PcdsDict[self._ValueList[0], self._ValueList[1]] != self._SectionType:
@@ -822,6 +857,7 @@ class DscParser(MetaFileParser):
         TAB_LIBRARIES.upper()                       :   MODEL_EFI_LIBRARY_INSTANCE,
         TAB_LIBRARY_CLASSES.upper()                 :   MODEL_EFI_LIBRARY_CLASS,
         TAB_BUILD_OPTIONS.upper()                   :   MODEL_META_DATA_BUILD_OPTION,
+        TAB_PACKAGES.upper()                        :   MODEL_META_DATA_PACKAGE,
         TAB_PCDS_FIXED_AT_BUILD_NULL.upper()        :   MODEL_PCD_FIXED_AT_BUILD,
         TAB_PCDS_PATCHABLE_IN_MODULE_NULL.upper()   :   MODEL_PCD_PATCHABLE_IN_MODULE,
         TAB_PCDS_FEATURE_FLAG_NULL.upper()          :   MODEL_PCD_FEATURE_FLAG,
@@ -832,7 +868,6 @@ class DscParser(MetaFileParser):
         TAB_PCDS_DYNAMIC_EX_HII_NULL.upper()        :   MODEL_PCD_DYNAMIC_EX_HII,
         TAB_PCDS_DYNAMIC_EX_VPD_NULL.upper()        :   MODEL_PCD_DYNAMIC_EX_VPD,
         TAB_COMPONENTS.upper()                      :   MODEL_META_DATA_COMPONENT,
-        TAB_COMPONENTS_SOURCE_OVERRIDE_PATH.upper() :   MODEL_META_DATA_COMPONENT_SOURCE_OVERRIDE_PATH,
         TAB_DSC_DEFINES.upper()                     :   MODEL_META_DATA_HEADER,
         TAB_DSC_DEFINES_DEFINE                      :   MODEL_META_DATA_DEFINE,
         TAB_DSC_DEFINES_EDKGLOBAL                   :   MODEL_META_DATA_GLOBAL_DEFINE,
@@ -913,15 +948,21 @@ class DscParser(MetaFileParser):
         #
         self._IdMapping = {-1:-1}
 
+        self._Content = None
+
     ## Parser starter
     def Start(self):
         Content = ''
         try:
-            Content = open(str(self.MetaFile), 'r').readlines()
+            with open(str(self.MetaFile), 'r') as File:
+                Content = File.readlines()
         except:
             EdkLogger.error("Parser", FILE_READ_FAILURE, ExtraData=self.MetaFile)
 
         OwnerId = {}
+
+        Content = self.ProcessMultipleLineCODEValue(Content)
+
         for Index in range(0, len(Content)):
             Line = CleanString(Content[Index])
             # skip empty line
@@ -968,6 +1009,11 @@ class DscParser(MetaFileParser):
             self._ItemType = SectionType
 
             self._ValueList = ['', '', '']
+            # "SET pcd = pcd_expression" syntax is not supported in Dsc file.
+            if self._CurrentLine.upper().strip().startswith("SET "):
+                EdkLogger.error('Parser', FORMAT_INVALID, '''"SET pcd = pcd_expression" syntax is not support in Dsc file''',
+                                ExtraData=self._CurrentLine,
+                                File=self.MetaFile, Line=self._LineIndex + 1)
             self._SectionParser[SectionType](self)
             if self._ValueList is None:
                 continue
@@ -1133,6 +1179,9 @@ class DscParser(MetaFileParser):
     def _LibraryInstanceParser(self):
         self._ValueList[0] = self._CurrentLine
 
+
+    def _DecodeCODEData(self):
+        pass
     ## PCD sections parser
     #
     #   [PcdsFixedAtBuild]
@@ -1149,7 +1198,28 @@ class DscParser(MetaFileParser):
     #
     @ParseMacro
     def _PcdParser(self):
+        if self._PcdDataTypeCODE:
+            self._PcdCodeValue = self._PcdCodeValue + "\n " + self._CurrentLine
+            if self._CurrentLine.endswith(")}"):
+                self._CurrentLine = "|".join((self._CurrentPcdName, self._PcdCodeValue))
+                self._PcdDataTypeCODE = False
+                self._PcdCodeValue = ""
+            else:
+                self._ValueList = None
+                return
         TokenList = GetSplitValueList(self._CurrentLine, TAB_VALUE_SPLIT, 1)
+        self._CurrentPcdName = TokenList[0]
+        if len(TokenList) == 2 and TokenList[1].strip().startswith("{CODE"):
+            self._PcdDataTypeCODE = True
+            self._PcdCodeValue = TokenList[1].strip()
+
+        if self._PcdDataTypeCODE:
+            if self._CurrentLine.endswith(")}"):
+                self._PcdDataTypeCODE = False
+                self._PcdCodeValue = ""
+            else:
+                self._ValueList = None
+                return
         self._ValueList[0:1] = GetSplitValueList(TokenList[0], TAB_SPLIT)
         PcdNameTockens = GetSplitValueList(TokenList[0], TAB_SPLIT)
         if len(PcdNameTockens) == 2:
@@ -1225,8 +1295,6 @@ class DscParser(MetaFileParser):
 
         self._ValueList[0:len(TokenList)] = TokenList
 
-    def _CompponentSourceOverridePathParser(self):
-        self._ValueList[0] = self._CurrentLine
 
     ## [BuildOptions] section parser
     @ParseMacro
@@ -1281,6 +1349,7 @@ class DscParser(MetaFileParser):
             MODEL_META_DATA_DEFINE                          :   self.__ProcessDefine,
             MODEL_META_DATA_GLOBAL_DEFINE                   :   self.__ProcessDefine,
             MODEL_META_DATA_INCLUDE                         :   self.__ProcessDirective,
+            MODEL_META_DATA_PACKAGE                         :   self.__ProcessPackages,
             MODEL_META_DATA_CONDITIONAL_STATEMENT_IF        :   self.__ProcessDirective,
             MODEL_META_DATA_CONDITIONAL_STATEMENT_ELSE      :   self.__ProcessDirective,
             MODEL_META_DATA_CONDITIONAL_STATEMENT_IFDEF     :   self.__ProcessDirective,
@@ -1301,15 +1370,13 @@ class DscParser(MetaFileParser):
             MODEL_PCD_DYNAMIC_EX_HII                        :   self.__ProcessPcd,
             MODEL_PCD_DYNAMIC_EX_VPD                        :   self.__ProcessPcd,
             MODEL_META_DATA_COMPONENT                       :   self.__ProcessComponent,
-            MODEL_META_DATA_COMPONENT_SOURCE_OVERRIDE_PATH  :   self.__ProcessSourceOverridePath,
             MODEL_META_DATA_BUILD_OPTION                    :   self.__ProcessBuildOption,
             MODEL_UNKNOWN                                   :   self._Skip,
             MODEL_META_DATA_USER_EXTENSION                  :   self._SkipUserExtension,
             MODEL_META_DATA_CONDITIONAL_STATEMENT_ERROR     :   self._ProcessError,
         }
 
-        self._Table = MetaFileStorage(self._RawTable.Cur, self.MetaFile, MODEL_FILE_DSC, True)
-        self._Table.Create()
+        self._Table = MetaFileStorage(self._RawTable.DB, self.MetaFile, MODEL_FILE_DSC, True)
         self._DirectiveStack = []
         self._DirectiveEvalStack = []
         self._FileWithError = self.MetaFile
@@ -1429,7 +1496,12 @@ class DscParser(MetaFileParser):
             self._SubsectionType = MODEL_UNKNOWN
 
     def __RetrievePcdValue(self):
-        Content = open(str(self.MetaFile), 'r').readlines()
+        try:
+            with open(str(self.MetaFile), 'r') as File:
+                Content = File.readlines()
+        except:
+            EdkLogger.error("Parser", FILE_READ_FAILURE, ExtraData=self.MetaFile)
+
         GlobalData.gPlatformOtherPcds['DSCFILE'] = str(self.MetaFile)
         for PcdType in (MODEL_PCD_PATCHABLE_IN_MODULE, MODEL_PCD_DYNAMIC_DEFAULT, MODEL_PCD_DYNAMIC_HII,
                         MODEL_PCD_DYNAMIC_VPD, MODEL_PCD_DYNAMIC_EX_DEFAULT, MODEL_PCD_DYNAMIC_EX_HII,
@@ -1530,16 +1602,6 @@ class DscParser(MetaFileParser):
             # Allow using system environment variables  in path after !include
             #
             __IncludeMacros['WORKSPACE'] = GlobalData.gGlobalDefines['WORKSPACE']
-            if "ECP_SOURCE" in GlobalData.gGlobalDefines:
-                __IncludeMacros['ECP_SOURCE'] = GlobalData.gGlobalDefines['ECP_SOURCE']
-            #
-            # During GenFds phase call DSC parser, will go into this branch.
-            #
-            elif "ECP_SOURCE" in GlobalData.gCommandLineDefines:
-                __IncludeMacros['ECP_SOURCE'] = GlobalData.gCommandLineDefines['ECP_SOURCE']
-
-            __IncludeMacros['EFI_SOURCE'] = GlobalData.gGlobalDefines['EFI_SOURCE']
-            __IncludeMacros['EDK_SOURCE'] = GlobalData.gGlobalDefines['EDK_SOURCE']
             #
             # Allow using MACROs comes from [Defines] section to keep compatible.
             #
@@ -1550,48 +1612,50 @@ class DscParser(MetaFileParser):
             # First search the include file under the same directory as DSC file
             #
             IncludedFile1 = PathClass(IncludedFile, self.MetaFile.Dir)
-            ErrorCode, ErrorInfo1 = IncludedFile1.Validate()
-            if ErrorCode != 0:
-                #
-                # Also search file under the WORKSPACE directory
-                #
-                IncludedFile1 = PathClass(IncludedFile, GlobalData.gWorkspace)
-                ErrorCode, ErrorInfo2 = IncludedFile1.Validate()
+            if self._Enabled:
+                ErrorCode, ErrorInfo1 = IncludedFile1.Validate()
                 if ErrorCode != 0:
-                    EdkLogger.error('parser', ErrorCode, File=self._FileWithError,
-                                    Line=self._LineIndex + 1, ExtraData=ErrorInfo1 + "\n" + ErrorInfo2)
+                    #
+                    # Also search file under the WORKSPACE directory
+                    #
+                    IncludedFile1 = PathClass(IncludedFile, GlobalData.gWorkspace)
+                    ErrorCode, ErrorInfo2 = IncludedFile1.Validate()
+                    if ErrorCode != 0:
+                        EdkLogger.error('parser', ErrorCode, File=self._FileWithError,
+                                        Line=self._LineIndex + 1, ExtraData=ErrorInfo1 + "\n" + ErrorInfo2)
 
-            self._FileWithError = IncludedFile1
+                self._FileWithError = IncludedFile1
 
-            FromItem = self._Content[self._ContentIndex - 1][0]
-            if self._InSubsection:
-                Owner = self._Content[self._ContentIndex - 1][8]
-            else:
-                Owner = self._Content[self._ContentIndex - 1][0]
-            IncludedFileTable = MetaFileStorage(self._Table.Cur, IncludedFile1, MODEL_FILE_DSC, False, FromItem=FromItem)
-            Parser = DscParser(IncludedFile1, self._FileType, self._Arch, IncludedFileTable,
-                               Owner=Owner, From=FromItem)
+                FromItem = self._Content[self._ContentIndex - 1][0]
+                if self._InSubsection:
+                    Owner = self._Content[self._ContentIndex - 1][8]
+                else:
+                    Owner = self._Content[self._ContentIndex - 1][0]
+                IncludedFileTable = MetaFileStorage(self._RawTable.DB, IncludedFile1, MODEL_FILE_DSC, False, FromItem=FromItem)
+                Parser = DscParser(IncludedFile1, self._FileType, self._Arch, IncludedFileTable,
+                                   Owner=Owner, From=FromItem)
 
-            self.IncludedFiles.add (IncludedFile1)
+                self.IncludedFiles.add (IncludedFile1)
 
-            # set the parser status with current status
-            Parser._SectionName = self._SectionName
-            Parser._SubsectionType = self._SubsectionType
-            Parser._InSubsection = self._InSubsection
-            Parser._SectionType = self._SectionType
-            Parser._Scope = self._Scope
-            Parser._Enabled = self._Enabled
-            # Parse the included file
-            Parser.Start()
+                # set the parser status with current status
+                Parser._SectionName = self._SectionName
+                Parser._SubsectionType = self._SubsectionType
+                Parser._InSubsection = self._InSubsection
+                Parser._SectionType = self._SectionType
+                Parser._Scope = self._Scope
+                Parser._Enabled = self._Enabled
+                # Parse the included file
+                Parser.StartParse()
+                # Insert all records in the table for the included file into dsc file table
+                Records = IncludedFileTable.GetAll()
+                if Records:
+                    self._Content[self._ContentIndex:self._ContentIndex] = Records
+                    self._Content.pop(self._ContentIndex - 1)
+                    self._ValueList = None
+                    self._ContentIndex -= 1
 
-
-            # Insert all records in the table for the included file into dsc file table
-            Records = IncludedFileTable.GetAll()
-            if Records:
-                self._Content[self._ContentIndex:self._ContentIndex] = Records
-                self._Content.pop(self._ContentIndex - 1)
-                self._ValueList = None
-                self._ContentIndex -= 1
+    def __ProcessPackages(self):
+        self._ValueList[0] = ReplaceMacro(self._ValueList[0], self._Macros)
 
     def __ProcessSkuId(self):
         self._ValueList = [ReplaceMacro(Value, self._Macros, RaiseError=True)
@@ -1614,8 +1678,8 @@ class DscParser(MetaFileParser):
         ValList, Valid, Index = AnalyzeDscPcd(self._ValueList[2], self._ItemType)
         if not Valid:
             if self._ItemType in (MODEL_PCD_DYNAMIC_DEFAULT, MODEL_PCD_DYNAMIC_EX_DEFAULT, MODEL_PCD_FIXED_AT_BUILD, MODEL_PCD_PATCHABLE_IN_MODULE):
-                if ValList[1] != TAB_VOID and ValList[2]:
-                    EdkLogger.error('build', FORMAT_INVALID, "Pcd format incorrect. Only VOID* type PCD need the maxsize info.", File=self._FileWithError,
+                if ValList[1] != TAB_VOID and StructPattern.match(ValList[1]) is None and ValList[2]:
+                    EdkLogger.error('build', FORMAT_INVALID, "Pcd format incorrect. The datum type info should be VOID* or a valid struct name.", File=self._FileWithError,
                                     Line=self._LineIndex + 1, ExtraData="%s.%s|%s" % (self._ValueList[0], self._ValueList[1], self._ValueList[2]))
             EdkLogger.error('build', FORMAT_INVALID, "Pcd format incorrect.", File=self._FileWithError, Line=self._LineIndex + 1,
                             ExtraData="%s.%s|%s" % (self._ValueList[0], self._ValueList[1], self._ValueList[2]))
@@ -1644,12 +1708,14 @@ class DscParser(MetaFileParser):
     def __ProcessComponent(self):
         self._ValueList[0] = ReplaceMacro(self._ValueList[0], self._Macros)
 
-    def __ProcessSourceOverridePath(self):
-        self._ValueList[0] = ReplaceMacro(self._ValueList[0], self._Macros)
-
     def __ProcessBuildOption(self):
         self._ValueList = [ReplaceMacro(Value, self._Macros, RaiseError=False)
                            for Value in self._ValueList]
+
+    def DisableOverrideComponent(self,module_id):
+        for ori_id in self._IdMapping:
+            if self._IdMapping[ori_id] == module_id:
+                self._RawTable.DisableComponent(ori_id)
 
     _SectionParser = {
         MODEL_META_DATA_HEADER                          :   _DefineParser,
@@ -1667,9 +1733,9 @@ class DscParser(MetaFileParser):
         MODEL_PCD_DYNAMIC_EX_HII                        :   _PcdParser,
         MODEL_PCD_DYNAMIC_EX_VPD                        :   _PcdParser,
         MODEL_META_DATA_COMPONENT                       :   _ComponentParser,
-        MODEL_META_DATA_COMPONENT_SOURCE_OVERRIDE_PATH  :   _CompponentSourceOverridePathParser,
         MODEL_META_DATA_BUILD_OPTION                    :   _BuildOptionParser,
         MODEL_UNKNOWN                                   :   MetaFileParser._Skip,
+        MODEL_META_DATA_PACKAGE                         :   MetaFileParser._PackageParser,
         MODEL_META_DATA_USER_EXTENSION                  :   MetaFileParser._SkipUserExtension,
         MODEL_META_DATA_SECTION_HEADER                  :   MetaFileParser._SectionHeaderParser,
         MODEL_META_DATA_SUBSECTION_HEADER               :   _SubsectionHeaderParser,
@@ -1723,13 +1789,18 @@ class DecParser(MetaFileParser):
         self._include_flag = False
         self._package_flag = False
 
+        self._RestofValue = ""
+
     ## Parser starter
     def Start(self):
         Content = ''
         try:
-            Content = open(str(self.MetaFile), 'r').readlines()
+            with open(str(self.MetaFile), 'r') as File:
+                Content = File.readlines()
         except:
             EdkLogger.error("Parser", FILE_READ_FAILURE, ExtraData=self.MetaFile)
+
+        Content = self.ProcessMultipleLineCODEValue(Content)
 
         self._DefinesCount = 0
         for Index in range(0, len(Content)):
@@ -1907,6 +1978,17 @@ class DecParser(MetaFileParser):
         if self._ValueList[0] not in self._GuidDict:
             self._GuidDict[self._ValueList[0]] = self._ValueList[1]
 
+    def ParsePcdName(self,namelist):
+        if "[" in namelist[1]:
+            pcdname = namelist[1][:namelist[1].index("[")]
+            arrayindex = namelist[1][namelist[1].index("["):]
+            namelist[1] = pcdname
+            if len(namelist) == 2:
+                namelist.append(arrayindex)
+            else:
+                namelist[2] = ".".join((arrayindex,namelist[2]))
+        return namelist
+
     ## PCD sections parser
     #
     #   [PcdsFixedAtBuild]
@@ -1917,6 +1999,7 @@ class DecParser(MetaFileParser):
     #
     @ParseMacro
     def _PcdParser(self):
+
         if self._CurrentStructurePcdName:
             self._ValueList[0] = self._CurrentStructurePcdName
 
@@ -1933,10 +2016,10 @@ class DecParser(MetaFileParser):
                     return
 
                 if self._include_flag:
-                    self._ValueList[1] = "<HeaderFiles>_" + md5(self._CurrentLine).hexdigest()
+                    self._ValueList[1] = "<HeaderFiles>_" + md5(self._CurrentLine.encode('utf-8')).hexdigest()
                     self._ValueList[2] = self._CurrentLine
                 if self._package_flag and "}" != self._CurrentLine:
-                    self._ValueList[1] = "<Packages>_" + md5(self._CurrentLine).hexdigest()
+                    self._ValueList[1] = "<Packages>_" + md5(self._CurrentLine.encode('utf-8')).hexdigest()
                     self._ValueList[2] = self._CurrentLine
                 if self._CurrentLine == "}":
                     self._package_flag = False
@@ -1945,9 +2028,16 @@ class DecParser(MetaFileParser):
                     return
             else:
                 PcdTockens = self._CurrentLine.split(TAB_VALUE_SPLIT)
-                PcdNames = PcdTockens[0].split(TAB_SPLIT)
+                PcdNames = self.ParsePcdName(PcdTockens[0].split(TAB_SPLIT))
                 if len(PcdNames) == 2:
-                    self._CurrentStructurePcdName = ""
+                    if PcdNames[1].strip().endswith("]"):
+                        PcdName = PcdNames[1][:PcdNames[1].index('[')]
+                        Index = PcdNames[1][PcdNames[1].index('['):]
+                        self._ValueList[0] = TAB_SPLIT.join((PcdNames[0],PcdName))
+                        self._ValueList[1] = Index
+                        self._ValueList[2] = PcdTockens[1]
+                    else:
+                        self._CurrentStructurePcdName = ""
                 else:
                     if self._CurrentStructurePcdName != TAB_SPLIT.join(PcdNames[:2]):
                         EdkLogger.error('Parser', FORMAT_INVALID, "Pcd Name does not match: %s and %s " % (self._CurrentStructurePcdName, TAB_SPLIT.join(PcdNames[:2])),
@@ -1955,7 +2045,29 @@ class DecParser(MetaFileParser):
                     self._ValueList[1] = TAB_SPLIT.join(PcdNames[2:])
                     self._ValueList[2] = PcdTockens[1]
         if not self._CurrentStructurePcdName:
+            if self._PcdDataTypeCODE:
+                if ")}" in self._CurrentLine:
+                    ValuePart,RestofValue = self._CurrentLine.split(")}")
+                    self._PcdCodeValue = self._PcdCodeValue + "\n " + ValuePart
+                    self._CurrentLine = "|".join((self._CurrentPcdName, self._PcdCodeValue,RestofValue))
+                    self._PcdDataTypeCODE = False
+                    self._PcdCodeValue = ""
+                else:
+                    self._PcdCodeValue = self._PcdCodeValue + "\n " + self._CurrentLine
+                    self._ValueList = None
+                    return
             TokenList = GetSplitValueList(self._CurrentLine, TAB_VALUE_SPLIT, 1)
+            self._CurrentPcdName = TokenList[0]
+            if len(TokenList) == 2 and TokenList[1].strip().startswith("{CODE"):
+                if ")}" in self._CurrentLine:
+                    self._PcdDataTypeCODE = False
+                    self._PcdCodeValue = ""
+                else:
+                    self._PcdDataTypeCODE = True
+                    self._PcdCodeValue = TokenList[1].strip()
+                    self._ValueList = None
+                    return
+
             self._ValueList[0:1] = GetSplitValueList(TokenList[0], TAB_SPLIT)
             ValueRe = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*')
             # check PCD information

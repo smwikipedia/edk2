@@ -3,13 +3,7 @@
 #  Copyright (c) 2011-2018, ARM Limited. All rights reserved.
 #  Copyright (c) 2015, Intel Corporation. All rights reserved.
 #
-#  This program and the accompanying materials
-#  are licensed and made available under the terms and conditions of the BSD License
-#  which accompanies this distribution.  The full text of the license may be found at
-#  http://opensource.org/licenses/bsd-license.php
-#
-#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 #**/
 
@@ -70,6 +64,7 @@
   ## SP805 Watchdog
   gArmPlatformTokenSpaceGuid.PcdSP805WatchdogBase|0x0|UINT32|0x00000023
   gArmPlatformTokenSpaceGuid.PcdSP805WatchdogClockFrequencyInHz|32000|UINT32|0x00000021
+  gArmPlatformTokenSpaceGuid.PcdSP805WatchdogInterrupt|0|UINT32|0x0000002E
 
   ## PL011 UART
   gArmPlatformTokenSpaceGuid.PL011UartClkInHz|24000000|UINT32|0x0000001F
@@ -98,10 +93,6 @@
   ## ARM Mali Display Processor DP500/DP550/DP650
   gArmPlatformTokenSpaceGuid.PcdArmMaliDpBase|0x0|UINT64|0x00000050
   gArmPlatformTokenSpaceGuid.PcdArmMaliDpMemoryRegionLength|0x0|UINT32|0x00000051
-
-  ## PL180 MCI
-  gArmPlatformTokenSpaceGuid.PcdPL180SysMciRegAddress|0x00000000|UINT32|0x00000028
-  gArmPlatformTokenSpaceGuid.PcdPL180MciBaseAddress|0x00000000|UINT32|0x00000029
 
   # Graphics Output Pixel format
   # 0 : PixelRedGreenBlueReserved8BitPerColor

@@ -3,13 +3,7 @@
 #
 #  Copyright (c) 2007 - 2017, Intel Corporation. All rights reserved.<BR>
 #
-#  This program and the accompanying materials
-#  are licensed and made available under the terms and conditions of the BSD License
-#  which accompanies this distribution.  The full text of the license may be found at
-#  http://opensource.org/licenses/bsd-license.php
-#
-#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 
 ifndef HOST_ARCH
@@ -27,9 +21,13 @@ ifndef HOST_ARCH
   endif
   ifneq (,$(findstring aarch64,$(uname_m)))
     HOST_ARCH=AARCH64
-  endif
-  ifneq (,$(findstring arm,$(uname_m)))
+  else ifneq (,$(findstring arm64,$(uname_m)))
+    HOST_ARCH=AARCH64
+  else ifneq (,$(findstring arm,$(uname_m)))
     HOST_ARCH=ARM
+  endif
+  ifneq (,$(findstring riscv64,$(uname_m)))
+    HOST_ARCH=RISCV64
   endif
   ifndef HOST_ARCH
     $(info Could not detected HOST_ARCH from uname results)
@@ -49,21 +47,15 @@ all: makerootdir subdirs
 
 LIBRARIES = Common
 VFRAUTOGEN = VfrCompile/VfrLexer.h
-# NON_BUILDABLE_APPLICATIONS = GenBootSector BootSectImage
 APPLICATIONS = \
   BrotliCompress \
   VfrCompile \
-  GnuGenBootSector \
-  BootSectImage \
-  EfiLdrImage \
   EfiRom \
   GenFfs \
   GenFv \
   GenFw \
-  GenPage \
   GenSec \
   GenCrc32 \
-  GenVtf \
   LzmaCompress \
   Split \
   TianoCompress \
@@ -88,7 +80,7 @@ $(SUBDIRS):
 $(patsubst %,%-clean,$(sort $(SUBDIRS))):
 	-$(MAKE) -C $(@:-clean=) clean
 
-$(VFRAUTOGEN): VfrCompile/VfrSyntax.g 
+$(VFRAUTOGEN): VfrCompile/VfrSyntax.g
 	$(MAKE) -C VfrCompile VfrLexer.h
 
 clean:  $(patsubst %,%-clean,$(sort $(SUBDIRS)))

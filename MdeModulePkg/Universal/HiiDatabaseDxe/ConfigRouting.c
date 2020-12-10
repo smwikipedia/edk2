@@ -2,13 +2,7 @@
 Implementation of interfaces function for EFI_HII_CONFIG_ROUTING_PROTOCOL.
 
 Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -915,6 +909,7 @@ CompareAndMergeDefaultString (
   // To find the <AltResp> with AltConfigHdr in AltCfgResp, ignore other <AltResp> which follow it.
   //
   StringPtr = StrStr (*AltCfgResp, AltConfigHdr);
+  ASSERT (StringPtr != NULL);
   StringPtrNext = StrStr (StringPtr + 1, L"&GUID");
   if (StringPtrNext != NULL) {
     TempCharA = *StringPtrNext;
@@ -5502,7 +5497,6 @@ HiiBlockToConfig (
   UINTN                               Index;
   UINT8                               *TemBuffer;
   CHAR16                              *TemString;
-  CHAR16                              TemChar;
 
   TmpBuffer = NULL;
 
@@ -5569,10 +5563,13 @@ HiiBlockToConfig (
   //
   // Copy <ConfigHdr> and an additional '&' to <ConfigResp>
   //
-  TemChar = *StringPtr;
-  *StringPtr = '\0';
-  AppendToMultiString(Config, ConfigRequest);
-  *StringPtr = TemChar;
+  TemString = AllocateCopyPool (sizeof (CHAR16) * (StringPtr - ConfigRequest + 1), ConfigRequest);
+  if (TemString == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+  TemString[StringPtr - ConfigRequest] = '\0';
+  AppendToMultiString(Config, TemString);
+  FreePool (TemString);
 
   //
   // Parse each <RequestElement> if exists

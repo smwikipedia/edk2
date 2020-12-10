@@ -2,13 +2,8 @@
   Function prototypes and defines on Memory Only PE COFF loader
 
   Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  Portion Copyright (c) 2020, Hewlett Packard Enterprise Development LP. All rights reserved.<BR>
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -31,6 +26,14 @@
 #define IMAGE_ERROR_FAILED_RELOCATION            9
 #define IMAGE_ERROR_FAILED_ICACHE_FLUSH          10
 
+//
+// Macro definitions for RISC-V architecture.
+//
+#define RV_X(x, s, n) (((x) >> (s)) & ((1<<(n))-1))
+#define RISCV_IMM_BITS 12
+#define RISCV_IMM_REACH (1LL<<RISCV_IMM_BITS)
+#define RISCV_CONST_HIGH_PART(VALUE) \
+  (((VALUE) + (RISCV_IMM_REACH/2)) & ~(RISCV_IMM_REACH-1))
 
 //
 // PE/COFF Loader Read Function passed in by caller
@@ -148,7 +151,7 @@ PeCoffLoaderGetEntryPoint (
 //
 
 /**
-  Pass in a pointer to an ARM MOVT or MOVW immediate instruciton and
+  Pass in a pointer to an ARM MOVT or MOVW immediate instruction and
   return the immediate data encoded in the instruction
 
   @param  Instruction   Pointer to ARM MOVT or MOVW immediate instruction
@@ -166,7 +169,7 @@ ThumbMovtImmediateAddress (
   Update an ARM MOVT or MOVW immediate instruction immediate data.
 
   @param  Instruction   Pointer to ARM MOVT or MOVW immediate instruction
-  @param  Address       New addres to patch into the instruction
+  @param  Address       New address to patch into the instruction
 
 **/
 VOID
@@ -178,10 +181,10 @@ ThumbMovtImmediatePatch (
 
 
 /**
-  Pass in a pointer to an ARM MOVW/MOVT instruciton pair and
+  Pass in a pointer to an ARM MOVW/MOVT instruction pair and
   return the immediate data encoded in the two` instruction
 
-  @param  Instructions  Pointer to ARM MOVW/MOVT insturction pair
+  @param  Instructions  Pointer to ARM MOVW/MOVT instruction pair
 
   @return Immediate address encoded in the instructions
 
@@ -196,7 +199,7 @@ ThumbMovwMovtImmediateAddress (
   Update an ARM MOVW/MOVT immediate instruction instruction pair.
 
   @param  Instructions  Pointer to ARM MOVW/MOVT instruction pair
-  @param  Address       New addres to patch into the instructions
+  @param  Address       New address to patch into the instructions
 **/
 VOID
 EFIAPI

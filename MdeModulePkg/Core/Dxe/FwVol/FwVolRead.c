@@ -1,14 +1,8 @@
 /** @file
   Implements functions to read firmware file
 
-Copyright (c) 2006 - 2017, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+Copyright (c) 2006 - 2020, Intel Corporation. All rights reserved.<BR>
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -149,9 +143,9 @@ FvGetNextFile (
     return EFI_ACCESS_DENIED;
   }
 
-  if (*FileType > EFI_FV_FILETYPE_SMM_CORE) {
+  if (*FileType > EFI_FV_FILETYPE_MM_CORE_STANDALONE) {
     //
-    // File type needs to be in 0 - 0x0D
+    // File type needs to be in 0 - 0x0F
     //
     return EFI_NOT_FOUND;
   }

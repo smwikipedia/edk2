@@ -9,12 +9,7 @@
 #
 # Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
 #
-#  This program and the accompanying materials
-#  are licensed and made available under the terms and conditions of the BSD License
-#  which accompanies this distribution. The full text of the license may be found at
-#  http://opensource.org/licenses/bsd-license.php.
-#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 #
 ##
@@ -26,12 +21,12 @@
   FILE_GUID                      = 3a004ba5-efe0-4a61-9f1a-267a46ae5ba9
   MODULE_TYPE                    = UEFI_DRIVER
   VERSION_STRING                 = 1.0
-  LIBRARY_CLASS                  = UefiLib|DXE_CORE DXE_DRIVER DXE_RUNTIME_DRIVER DXE_SAL_DRIVER DXE_SMM_DRIVER UEFI_APPLICATION UEFI_DRIVER SMM_CORE
+  LIBRARY_CLASS                  = UefiLib|DXE_CORE DXE_DRIVER DXE_RUNTIME_DRIVER DXE_SMM_DRIVER UEFI_APPLICATION UEFI_DRIVER SMM_CORE
   CONSTRUCTOR                    = UefiLibConstructor
 
 
 #
-#  VALID_ARCHITECTURES           = IA32 X64 IPF EBC
+#  VALID_ARCHITECTURES           = IA32 X64 EBC
 #
 
 [Sources]
@@ -41,6 +36,7 @@
   Console.c
   UefiLib.c
   UefiLibInternal.h
+  Acpi.c
 
 
 [Packages]
@@ -62,6 +58,8 @@
   gEfiEventReadyToBootGuid                      ## SOMETIMES_CONSUMES  ## Event
   gEfiEventLegacyBootGuid                       ## SOMETIMES_CONSUMES  ## Event
   gEfiGlobalVariableGuid                        ## SOMETIMES_CONSUMES  ## Variable
+  gEfiAcpi20TableGuid                           ## SOMETIMES_CONSUMES  ## SystemTable
+  gEfiAcpi10TableGuid                           ## SOMETIMES_CONSUMES  ## SystemTable
 
 [Protocols]
   gEfiDriverBindingProtocolGuid                   ## SOMETIMES_PRODUCES

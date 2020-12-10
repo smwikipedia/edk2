@@ -4,13 +4,8 @@
 
 Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
 Portions Copyright (c) 2011 - 2013, ARM Ltd. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+Portions Copyright (c) 2020, Hewlett Packard Enterprise Development LP. All rights reserved.<BR>
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -56,17 +51,18 @@ PeCoffLoaderRelocateIa32Image (
   IN UINT64      Adjust
   );
 
+
 RETURN_STATUS
-PeCoffLoaderRelocateIpfImage (
-  IN UINT16      *Reloc,
+PeCoffLoaderRelocateArmImage (
+  IN UINT16      **Reloc,
   IN OUT CHAR8   *Fixup,
   IN OUT CHAR8   **FixupData,
   IN UINT64      Adjust
   );
 
 RETURN_STATUS
-PeCoffLoaderRelocateArmImage (
-  IN UINT16      **Reloc,
+PeCoffLoaderRelocateRiscVImage (
+  IN UINT16      *Reloc,
   IN OUT CHAR8   *Fixup,
   IN OUT CHAR8   **FixupData,
   IN UINT64      Adjust
@@ -184,11 +180,11 @@ Returns:
   }
 
   if (ImageContext->Machine != EFI_IMAGE_MACHINE_IA32 && \
-      ImageContext->Machine != EFI_IMAGE_MACHINE_IA64 && \
       ImageContext->Machine != EFI_IMAGE_MACHINE_X64  && \
       ImageContext->Machine != EFI_IMAGE_MACHINE_ARMT && \
       ImageContext->Machine != EFI_IMAGE_MACHINE_EBC  && \
-      ImageContext->Machine != EFI_IMAGE_MACHINE_AARCH64) {
+      ImageContext->Machine != EFI_IMAGE_MACHINE_AARCH64 && \
+      ImageContext->Machine != EFI_IMAGE_MACHINE_RISCV64) {
     if (ImageContext->Machine == IMAGE_FILE_MACHINE_ARM) {
       //
       // There are two types of ARM images. Pure ARM and ARM/Thumb.
@@ -225,7 +221,7 @@ Returns:
       ImageContext->ImageType != EFI_IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER && \
       ImageContext->ImageType != EFI_IMAGE_SUBSYSTEM_SAL_RUNTIME_DRIVER) {
     //
-    // upsupported PeImage subsystem type
+    // unsupported PeImage subsystem type
     //
     return RETURN_UNSUPPORTED;
   }
@@ -491,7 +487,7 @@ Returns:
       // In Te image header there is not a field to describe the ImageSize.
       // Actually, the ImageSize equals the RVA plus the VirtualSize of
       // the last section mapped into memory (Must be rounded up to
-      // a mulitple of Section Alignment). Per the PE/COFF specification, the
+      // a multiple of Section Alignment). Per the PE/COFF specification, the
       // section headers in the Section Table must appear in order of the RVA
       // values for the corresponding sections. So the ImageSize can be determined
       // by the RVA and the VirtualSize of the last section header in the
@@ -816,8 +812,8 @@ Returns:
         case EFI_IMAGE_MACHINE_ARMT:
           Status = PeCoffLoaderRelocateArmImage (&Reloc, Fixup, &FixupData, Adjust);
           break;
-        case EFI_IMAGE_MACHINE_IA64:
-          Status = PeCoffLoaderRelocateIpfImage (Reloc, Fixup, &FixupData, Adjust);
+        case EFI_IMAGE_MACHINE_RISCV64:
+          Status = PeCoffLoaderRelocateRiscVImage (Reloc, Fixup, &FixupData, Adjust);
           break;
         default:
           Status = RETURN_UNSUPPORTED;
@@ -1319,15 +1315,14 @@ PeCoffLoaderGetPdbPointer (
       Magic = EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC;
       break;
     case EFI_IMAGE_MACHINE_X64:
-    case EFI_IMAGE_MACHINE_IPF:
       //
-      // Assume PE32+ image with X64 or IPF Machine field
+      // Assume PE32+ image with X64 Machine field
       //
       Magic = EFI_IMAGE_NT_OPTIONAL_HDR64_MAGIC;
       break;
     default:
       //
-      // For unknow Machine field, use Magic in optional Header
+      // For unknown Machine field, use Magic in optional Header
       //
       Magic = Hdr.Pe32->OptionalHeader.Magic;
     }

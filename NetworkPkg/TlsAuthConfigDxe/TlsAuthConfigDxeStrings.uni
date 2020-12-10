@@ -2,13 +2,7 @@
   String definitions for Tls Authentication Configuration form.
 
 Copyright (c) 2016, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -33,6 +27,8 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #string STR_TLS_AUTH_CONFIG_CERT_GUID_HELP           #language en-US "Input digit character in 11111111-2222-3333-4444-1234567890ab format."
 #string STR_TLS_AUTH_CONFIG_SAVE_AND_EXIT            #language en-US "Commit Changes and Exit"
 #string STR_TLS_AUTH_CONFIG_NO_SAVE_AND_EXIT         #language en-US "Discard Changes and Exit"
+
+#string STR_TLS_AUTH_ENROLL_CERT_FAILURE             #language en-US "Enroll Cert Failure!"
 
 #string STR_CERT_TYPE_PCKS_GUID                      #language en-US "GUID for CERT"
 

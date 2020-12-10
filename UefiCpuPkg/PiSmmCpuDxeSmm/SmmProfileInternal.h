@@ -1,25 +1,20 @@
 /** @file
 SMM profile internal header file.
 
-Copyright (c) 2012 - 2017, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+Copyright (c) 2012 - 2018, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2020, AMD Incorporated. All rights reserved.<BR>
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
 #ifndef _SMM_PROFILE_INTERNAL_H_
 #define _SMM_PROFILE_INTERNAL_H_
 
-#include <Guid/Acpi.h>
 #include <Protocol/SmmReadyToLock.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/DxeServicesTableLib.h>
 #include <Library/CpuLib.h>
+#include <Library/UefiCpuLib.h>
 #include <IndustryStandard/Acpi.h>
 
 #include "SmmProfileArch.h"
@@ -106,6 +101,7 @@ extern SMM_S3_RESUME_STATE       *mSmmS3ResumeState;
 extern UINTN                     gSmiExceptionHandlers[];
 extern BOOLEAN                   mXdSupported;
 X86_ASSEMBLY_PATCH_LABEL         gPatchXdSupported;
+X86_ASSEMBLY_PATCH_LABEL         gPatchMsrIa32MiscEnableSupported;
 extern UINTN                     *mPFEntryCount;
 extern UINT64                    (*mLastPFEntryValue)[MAX_PF_ENTRY_COUNT];
 extern UINT64                    *(*mLastPFEntryPointer)[MAX_PF_ENTRY_COUNT];

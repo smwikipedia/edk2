@@ -3,13 +3,8 @@
 
   Copyright (c) 2016, Intel Corporation. All rights reserved.<BR>
   (C) Copyright 2016-2018 Hewlett Packard Enterprise Development LP<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  Copyright (c) Microsoft Corporation.<BR>
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -171,7 +166,7 @@ UnregisterAllRamDisks (
   RAM_DISK_PRIVATE_DATA           *PrivateData;
 
   if (!IsListEmpty(&RegisteredRamDisks)) {
-    EFI_LIST_FOR_EACH_SAFE (Entry, NextEntry, &RegisteredRamDisks) {
+    BASE_LIST_FOR_EACH_SAFE (Entry, NextEntry, &RegisteredRamDisks) {
       PrivateData = RAM_DISK_PRIVATE_FROM_THIS (Entry);
 
       gBS->UninstallMultipleProtocolInterfaces (
@@ -513,7 +508,7 @@ UpdateMainForm (
   EndLabel->Number       = MAIN_LABEL_LIST_END;
 
   Index = 0;
-  EFI_LIST_FOR_EACH (Entry, &RegisteredRamDisks) {
+  BASE_LIST_FOR_EACH (Entry, &RegisteredRamDisks) {
     PrivateData                  = RAM_DISK_PRIVATE_FROM_THIS (Entry);
     PrivateData->CheckBoxId      = (EFI_QUESTION_ID)
                                    (MAIN_CHECKBOX_QUESTION_ID_START + Index);
@@ -695,7 +690,7 @@ RamDiskCallback (
       //
       // Remove the selected RAM disks
       //
-      EFI_LIST_FOR_EACH_SAFE (Entry, NextEntry, &RegisteredRamDisks) {
+      BASE_LIST_FOR_EACH_SAFE (Entry, NextEntry, &RegisteredRamDisks) {
         PrivateData = RAM_DISK_PRIVATE_FROM_THIS (Entry);
         if (PrivateData->CheckBoxChecked) {
           RamDiskUnregister (
@@ -748,7 +743,7 @@ RamDiskCallback (
       //
       if ((QuestionId >= MAIN_CHECKBOX_QUESTION_ID_START) &&
           (QuestionId < CREATE_RAW_RAM_DISK_FORM_ID)) {
-        EFI_LIST_FOR_EACH (Entry, &RegisteredRamDisks) {
+        BASE_LIST_FOR_EACH (Entry, &RegisteredRamDisks) {
           PrivateData = RAM_DISK_PRIVATE_FROM_THIS (Entry);
           if (PrivateData->CheckBoxId == QuestionId) {
             PrivateData->CheckBoxChecked = (BOOLEAN) (Value->u8 != 0);

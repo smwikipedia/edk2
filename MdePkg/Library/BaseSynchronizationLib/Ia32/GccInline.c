@@ -3,13 +3,7 @@
 
   Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
   Portions copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php.
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -38,17 +32,16 @@ InternalSyncIncrement (
   __asm__ __volatile__ (
     "movl    $1, %%eax  \n\t"
     "lock               \n\t"
-    "xadd    %%eax, %2  \n\t"
-    "inc     %%eax          "
-    : "=a" (Result),          // %0
-      "=m" (*Value)           // %1
-    : "m"  (*Value)           // %2
+    "xadd    %%eax, %1  \n\t"
+    "inc     %%eax      \n\t"
+    : "=&a" (Result),         // %0
+      "+m" (*Value)           // %1
+    :                         // no inputs that aren't also outputs
     : "memory",
       "cc"
     );
 
   return Result;
-
 }
 
 
@@ -75,17 +68,18 @@ InternalSyncDecrement (
   __asm__ __volatile__ (
     "movl    $-1, %%eax  \n\t"
     "lock                \n\t"
-    "xadd    %%eax, %2   \n\t"
-    "dec     %%eax                  "
-    : "=a" (Result),          // %0
-      "=m" (*Value)           // %1
-    : "m"  (*Value)           // %2
+    "xadd    %%eax, %1   \n\t"
+    "dec     %%eax       \n\t"
+    : "=&a" (Result),          // %0
+      "+m" (*Value)            // %1
+    :                          // no inputs that aren't also outputs
     : "memory",
       "cc"
     );
 
   return Result;
 }
+
 
 /**
   Performs an atomic compare exchange operation on a 16-bit unsigned integer.
@@ -113,21 +107,19 @@ InternalSyncCompareExchange16 (
   IN      UINT16                    ExchangeValue
   )
 {
-
   __asm__ __volatile__ (
-    "                     \n\t"
     "lock                 \n\t"
-    "cmpxchgw    %1, %2   \n\t"
-    : "=a" (CompareValue)
-    : "q"  (ExchangeValue),
-      "m"  (*Value),
-      "0"  (CompareValue)
+    "cmpxchgw    %2, %1   \n\t"
+    : "+a" (CompareValue),      // %0
+      "+m" (*Value)             // %1
+    : "q"  (ExchangeValue)      // %2
     : "memory",
       "cc"
     );
 
   return CompareValue;
 }
+
 
 /**
   Performs an atomic compare exchange operation on a 32-bit unsigned integer.
@@ -155,21 +147,19 @@ InternalSyncCompareExchange32 (
   IN      UINT32                    ExchangeValue
   )
 {
-
   __asm__ __volatile__ (
-    "                     \n\t"
     "lock                 \n\t"
-    "cmpxchgl    %1, %2   \n\t"
-    : "=a" (CompareValue)     // %0
-    : "q"  (ExchangeValue),   // %1
-      "m"  (*Value),          // %2
-      "0"  (CompareValue)     // %4
+    "cmpxchgl    %2, %1   \n\t"
+    : "+a" (CompareValue),      // %0
+      "+m" (*Value)             // %1
+    : "q"  (ExchangeValue)      // %2
     : "memory",
       "cc"
     );
 
   return CompareValue;
 }
+
 
 /**
   Performs an atomic compare exchange operation on a 64-bit unsigned integer.
@@ -197,15 +187,11 @@ InternalSyncCompareExchange64 (
   )
 {
   __asm__ __volatile__ (
-    "                       \n\t"
-    "push        %%ebx      \n\t"
-    "movl        %2,%%ebx   \n\t"
     "lock                   \n\t"
     "cmpxchg8b   (%1)       \n\t"
-    "pop         %%ebx      \n\t"
     : "+A"  (CompareValue)                    // %0
     : "S"   (Value),                          // %1
-      "r"   ((UINT32) ExchangeValue),         // %2
+      "b"   ((UINT32) ExchangeValue),         // %2
       "c"   ((UINT32) (ExchangeValue >> 32))  // %3
     : "memory",
       "cc"

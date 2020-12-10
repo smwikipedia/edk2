@@ -3,15 +3,9 @@ PEIM to produce gPeiUsb2HostControllerPpiGuid based on gPeiUsbControllerPpiGuid
 which is used to enable recovery function from USB Drivers.
 
 Copyright (c) 2010 - 2018, Intel Corporation. All rights reserved.<BR>
+Copyright (c) Microsoft Corporation.<BR>
 
-This program and the accompanying materials
-are licensed and made available under the terms and conditions
-of the BSD License which accompanies this distribution.  The
-full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -297,7 +291,7 @@ EhcFreeQtds (
   EFI_LIST_ENTRY          *Next;
   PEI_EHC_QTD             *Qtd;
 
-  EFI_LIST_FOR_EACH_SAFE (Entry, Next, Qtds) {
+  BASE_LIST_FOR_EACH_SAFE (Entry, Next, Qtds) {
     Qtd = EFI_LIST_CONTAINER (Entry, PEI_EHC_QTD, QtdList);
 
     RemoveEntryList (&Qtd->QtdList);
@@ -468,7 +462,7 @@ EhcCreateQtds (
   //
   // OK, all the QTDs needed are created. Now, fix the NextQtd point
   //
-  EFI_LIST_FOR_EACH (Entry, &Qh->Qtds) {
+  BASE_LIST_FOR_EACH (Entry, &Qh->Qtds) {
     Qtd = EFI_LIST_CONTAINER (Entry, PEI_EHC_QTD, QtdList);
 
     //
@@ -540,6 +534,8 @@ EhcCreateUrb (
   UINTN                         Len;
   PEI_URB                       *Urb;
   VOID                          *Map;
+
+  Map = NULL;
 
   Urb = Ehc->Urb;
   Urb->Signature  = EHC_URB_SIG;

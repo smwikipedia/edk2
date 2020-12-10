@@ -4,13 +4,8 @@
 #  This module will initialize TPM device, measure reported FVs and BIOS version.
 #  This module may also lock TPM physical presence and physicalPresenceLifetimeLock.
 #
-# Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-# This program and the accompanying materials
-# are licensed and made available under the terms and conditions of the BSD License
-# which accompanies this distribution. The full text of the license may be found at
-# http://opensource.org/licenses/bsd-license.php
-# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+# Copyright (c) 2006 - 2020, Intel Corporation. All rights reserved.<BR>
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 ##
 
@@ -63,6 +58,7 @@
   gTpmErrorHobGuid                                                    ## SOMETIMES_PRODUCES     ## HOB
   gMeasuredFvHobGuid                                                  ## PRODUCES               ## HOB
   gEfiTpmDeviceInstanceTpm12Guid                                      ## PRODUCES               ## GUID       # TPM device identifier
+  gEdkiiMigratedFvInfoGuid                                            ## SOMETIMES_CONSUMES     ## HOB
 
 [Ppis]
   gPeiLockPhysicalPresencePpiGuid                                     ## SOMETIMES_CONSUMES     ## NOTIFY
@@ -72,6 +68,7 @@
   gPeiTpmInitializedPpiGuid                                           ## SOMETIMES_PRODUCES
   gPeiTpmInitializationDonePpiGuid                                    ## PRODUCES
   gEfiEndOfPeiSignalPpiGuid                                           ## SOMETIMES_CONSUMES     ## NOTIFY
+  gEdkiiTcgPpiGuid                                                    ## PRODUCES
 
 [Pcd]
   gEfiSecurityPkgTokenSpaceGuid.PcdPhysicalPresenceLifetimeLock       ## SOMETIMES_CONSUMES
@@ -81,7 +78,6 @@
   gEfiSecurityPkgTokenSpaceGuid.PcdTpmInstanceGuid                    ## CONSUMES
   gEfiSecurityPkgTokenSpaceGuid.PcdTpmInitializationPolicy            ## CONSUMES
   gEfiSecurityPkgTokenSpaceGuid.PcdTpmScrtmPolicy                     ## SOMETIMES_CONSUMES
-  gEfiMdeModulePkgTokenSpaceGuid.PcdPeiCoreMaxFvSupported             ## CONSUMES
   gEfiSecurityPkgTokenSpaceGuid.PcdStatusCodeSubClassTpmDevice        ## SOMETIMES_CONSUMES
 
 [Depex]

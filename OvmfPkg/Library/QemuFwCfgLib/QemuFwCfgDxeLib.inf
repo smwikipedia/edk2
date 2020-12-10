@@ -6,13 +6,7 @@
 #  Copyright (c) 2008 - 2012, Intel Corporation. All rights reserved.<BR>
 #  Copyright (c) 2017, AMD Incorporated. All rights reserved.<BR>
 #
-#  This program and the accompanying materials
-#  are licensed and made available under the terms and conditions of the BSD License
-#  which accompanies this distribution. The full text of the license may be found at
-#  http://opensource.org/licenses/bsd-license.php
-#
-#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 ##
 
@@ -22,7 +16,7 @@
   FILE_GUID                      = 80474090-55e7-4c28-b25c-9f236ba41f28
   MODULE_TYPE                    = BASE
   VERSION_STRING                 = 1.0
-  LIBRARY_CLASS                  = QemuFwCfgLib|DXE_DRIVER DXE_RUNTIME_DRIVER DXE_SMM_DRIVER
+  LIBRARY_CLASS                  = QemuFwCfgLib|DXE_DRIVER DXE_RUNTIME_DRIVER DXE_SMM_DRIVER UEFI_DRIVER
 
   CONSTRUCTOR                    = QemuFwCfgInitialize
 

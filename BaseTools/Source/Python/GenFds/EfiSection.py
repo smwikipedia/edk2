@@ -3,13 +3,7 @@
 #
 #  Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
 #
-#  This program and the accompanying materials
-#  are licensed and made available under the terms and conditions of the BSD License
-#  which accompanies this distribution.  The full text of the license may be found at
-#  http://opensource.org/licenses/bsd-license.php
-#
-#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 
 ##
@@ -20,7 +14,7 @@ from struct import *
 from . import Section
 from .GenFdsGlobalVariable import GenFdsGlobalVariable
 import subprocess
-from .Ffs import Ffs
+from .Ffs import SectionSuffix
 import Common.LongFilePathOs as os
 from CommonDataClass.FdfClass import EfiSectionClassObject
 from Common import EdkLogger
@@ -55,7 +49,7 @@ class EfiSection (EfiSectionClassObject):
     #   @param  Dict        dictionary contains macro and its value
     #   @retval tuple       (Generated file name list, section alignment)
     #
-    def GenSection(self, OutputPath, ModuleName, SecNum, KeyStringList, FfsInf = None, Dict = {}, IsMakefile = False) :
+    def GenSection(self, OutputPath, ModuleName, SecNum, KeyStringList, FfsInf = None, Dict = None, IsMakefile = False) :
 
         if self.FileName is not None and self.FileName.startswith('PCD('):
             self.FileName = GenFdsGlobalVariable.GetPcdValue(self.FileName)
@@ -68,7 +62,7 @@ class EfiSection (EfiSectionClassObject):
             StringData = FfsInf.__ExtendMacro__(self.StringData)
             ModuleNameStr = FfsInf.__ExtendMacro__('$(MODULE_NAME)')
             NoStrip = True
-            if FfsInf.ModuleType in (SUP_MODULE_SEC, SUP_MODULE_PEI_CORE, SUP_MODULE_PEIM) and SectionType in (BINARY_FILE_TYPE_TE, BINARY_FILE_TYPE_PE32):
+            if FfsInf.ModuleType in (SUP_MODULE_SEC, SUP_MODULE_PEI_CORE, SUP_MODULE_PEIM, SUP_MODULE_MM_CORE_STANDALONE) and SectionType in (BINARY_FILE_TYPE_TE, BINARY_FILE_TYPE_PE32):
                 if FfsInf.KeepReloc is not None:
                     NoStrip = FfsInf.KeepReloc
                 elif FfsInf.KeepRelocFromRule is not None:
@@ -82,6 +76,8 @@ class EfiSection (EfiSectionClassObject):
 
         """If the file name was pointed out, add it in FileList"""
         FileList = []
+        if Dict is None:
+            Dict = {}
         if Filename is not None:
             Filename = GenFdsGlobalVariable.MacroExtend(Filename, Dict)
             # check if the path is absolute or relative
@@ -99,7 +95,7 @@ class EfiSection (EfiSectionClassObject):
                 if '.depex' in SuffixMap:
                     FileList.append(Filename)
         else:
-            FileList, IsSect = Section.Section.GetFileList(FfsInf, self.FileType, self.FileExtension, Dict, IsMakefile=IsMakefile)
+            FileList, IsSect = Section.Section.GetFileList(FfsInf, self.FileType, self.FileExtension, Dict, IsMakefile=IsMakefile, SectionType=SectionType)
             if IsSect :
                 return FileList, self.Alignment
 
@@ -124,7 +120,7 @@ class EfiSection (EfiSectionClassObject):
                     BuildNumTuple = tuple()
 
                 Num = SecNum
-                OutputFile = os.path.join( OutputPath, ModuleName + SUP_MODULE_SEC + str(Num) + Ffs.SectionSuffix.get(SectionType))
+                OutputFile = os.path.join( OutputPath, ModuleName + SUP_MODULE_SEC + str(Num) + SectionSuffix.get(SectionType))
                 GenFdsGlobalVariable.GenerateSection(OutputFile, [], 'EFI_SECTION_VERSION',
                                                     #Ui=StringData,
                                                     Ver=BuildNum,
@@ -135,7 +131,7 @@ class EfiSection (EfiSectionClassObject):
                 for File in FileList:
                     Index = Index + 1
                     Num = '%s.%d' %(SecNum, Index)
-                    OutputFile = os.path.join(OutputPath, ModuleName + SUP_MODULE_SEC + Num + Ffs.SectionSuffix.get(SectionType))
+                    OutputFile = os.path.join(OutputPath, ModuleName + SUP_MODULE_SEC + Num + SectionSuffix.get(SectionType))
                     f = open(File, 'r')
                     VerString = f.read()
                     f.close()
@@ -164,7 +160,7 @@ class EfiSection (EfiSectionClassObject):
                     else:
                         EdkLogger.error("GenFds", GENFDS_ERROR, "File: %s miss Version Section value" %InfFileName)
                 Num = SecNum
-                OutputFile = os.path.join( OutputPath, ModuleName + SUP_MODULE_SEC + str(Num) + Ffs.SectionSuffix.get(SectionType))
+                OutputFile = os.path.join( OutputPath, ModuleName + SUP_MODULE_SEC + str(Num) + SectionSuffix.get(SectionType))
                 GenFdsGlobalVariable.GenerateSection(OutputFile, [], 'EFI_SECTION_VERSION',
                                                     #Ui=VerString,
                                                     Ver=BuildNum,
@@ -185,7 +181,7 @@ class EfiSection (EfiSectionClassObject):
                 Num = SecNum
                 if IsMakefile and StringData == ModuleNameStr:
                     StringData = "$(MODULE_NAME)"
-                OutputFile = os.path.join( OutputPath, ModuleName + SUP_MODULE_SEC + str(Num) + Ffs.SectionSuffix.get(SectionType))
+                OutputFile = os.path.join( OutputPath, ModuleName + SUP_MODULE_SEC + str(Num) + SectionSuffix.get(SectionType))
                 GenFdsGlobalVariable.GenerateSection(OutputFile, [], 'EFI_SECTION_USER_INTERFACE',
                                                      Ui=StringData, IsMakefile=IsMakefile)
                 OutputFileList.append(OutputFile)
@@ -194,7 +190,7 @@ class EfiSection (EfiSectionClassObject):
                 for File in FileList:
                     Index = Index + 1
                     Num = '%s.%d' %(SecNum, Index)
-                    OutputFile = os.path.join(OutputPath, ModuleName + SUP_MODULE_SEC + Num + Ffs.SectionSuffix.get(SectionType))
+                    OutputFile = os.path.join(OutputPath, ModuleName + SUP_MODULE_SEC + Num + SectionSuffix.get(SectionType))
                     f = open(File, 'r')
                     UiString = f.read()
                     f.close()
@@ -218,11 +214,31 @@ class EfiSection (EfiSectionClassObject):
                 Num = SecNum
                 if IsMakefile and StringData == ModuleNameStr:
                     StringData = "$(MODULE_NAME)"
-                OutputFile = os.path.join( OutputPath, ModuleName + SUP_MODULE_SEC + str(Num) + Ffs.SectionSuffix.get(SectionType))
+                OutputFile = os.path.join( OutputPath, ModuleName + SUP_MODULE_SEC + str(Num) + SectionSuffix.get(SectionType))
                 GenFdsGlobalVariable.GenerateSection(OutputFile, [], 'EFI_SECTION_USER_INTERFACE',
                                                      Ui=StringData, IsMakefile=IsMakefile)
                 OutputFileList.append(OutputFile)
 
+        #
+        # If Section Type is BINARY_FILE_TYPE_RAW
+        #
+        elif SectionType == BINARY_FILE_TYPE_RAW:
+            """If File List is empty"""
+            if FileList == []:
+                if self.Optional == True:
+                    GenFdsGlobalVariable.VerboseLogger("Optional Section don't exist!")
+                    return [], None
+                else:
+                    EdkLogger.error("GenFds", GENFDS_ERROR, "Output file for %s section could not be found for %s" % (SectionType, InfFileName))
+
+            elif len(FileList) > 1:
+                EdkLogger.error("GenFds", GENFDS_ERROR,
+                                "Files suffixed with %s are not allowed to have more than one file in %s[Binaries] section" % (
+                                self.FileExtension, InfFileName))
+            else:
+                for File in FileList:
+                    File = GenFdsGlobalVariable.MacroExtend(File, Dict)
+                    OutputFileList.append(File)
 
         else:
             """If File List is empty"""
@@ -239,20 +255,13 @@ class EfiSection (EfiSectionClassObject):
                     """ Copy Map file to FFS output path """
                     Index = Index + 1
                     Num = '%s.%d' %(SecNum, Index)
-                    OutputFile = os.path.join( OutputPath, ModuleName + SUP_MODULE_SEC + Num + Ffs.SectionSuffix.get(SectionType))
+                    OutputFile = os.path.join( OutputPath, ModuleName + SUP_MODULE_SEC + Num + SectionSuffix.get(SectionType))
                     File = GenFdsGlobalVariable.MacroExtend(File, Dict)
 
                     #Get PE Section alignment when align is set to AUTO
                     if self.Alignment == 'Auto' and (SectionType == BINARY_FILE_TYPE_PE32 or SectionType == BINARY_FILE_TYPE_TE):
-                        ImageObj = PeImageClass (File)
-                        if ImageObj.SectionAlignment < 0x400:
-                            Align = str (ImageObj.SectionAlignment)
-                        elif ImageObj.SectionAlignment < 0x100000:
-                            Align = str (ImageObj.SectionAlignment / 0x400) + 'K'
-                        else:
-                            Align = str (ImageObj.SectionAlignment / 0x100000) + 'M'
-
-                    if File[(len(File)-4):] == '.efi':
+                        Align = "0"
+                    if File[(len(File)-4):] == '.efi' and FfsInf.InfModule.BaseName == os.path.basename(File)[:-4]:
                         MapFile = File.replace('.efi', '.map')
                         CopyMapFile = os.path.join(OutputPath, ModuleName + '.map')
                         if IsMakefile:

@@ -1,14 +1,8 @@
 /** @file
 Definitions for CPU S3 data.
 
-Copyright (c) 2013 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+Copyright (c) 2013 - 2020, Intel Corporation. All rights reserved.<BR>
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -22,8 +16,69 @@ typedef enum {
   Msr,
   ControlRegister,
   MemoryMapped,
-  CacheControl
+  CacheControl,
+
+  //
+  // Semaphore type used to control the execute sequence of the Msr.
+  // It will be insert between two Msr which has execute dependence.
+  //
+  Semaphore,
+  InvalidReg
 } REGISTER_TYPE;
+
+//
+// Describe the dependency type for different features.
+// The value set to CPU_REGISTER_TABLE_ENTRY.Value when the REGISTER_TYPE is Semaphore.
+//
+typedef enum {
+  NoneDepType,
+  ThreadDepType,
+  CoreDepType,
+  PackageDepType,
+  InvalidDepType
+} CPU_FEATURE_DEPENDENCE_TYPE;
+
+//
+// CPU information.
+//
+typedef struct {
+  //
+  // Record the package count in this CPU.
+  //
+  UINT32                      PackageCount;
+  //
+  // Record the max core count in this CPU.
+  // Different packages may have different core count, this value
+  // save the max core count in all the packages.
+  //
+  UINT32                      MaxCoreCount;
+  //
+  // Record the max thread count in this CPU.
+  // Different cores may have different thread count, this value
+  // save the max thread count in all the cores.
+  //
+  UINT32                      MaxThreadCount;
+  //
+  // This field points to an array.
+  // This array saves thread count (type UINT32) of each package.
+  // The array has PackageCount elements.
+  //
+  // If the platform does not support MSR setting at S3 resume, and
+  // therefore it doesn't need the dependency semaphores, it should set
+  // this field to 0.
+  //
+  EFI_PHYSICAL_ADDRESS        ThreadCountPerPackage;
+  //
+  // This field points to an array.
+  // This array saves thread count (type UINT8) of each core.
+  // The array has PackageCount * MaxCoreCount elements.
+  //
+  // If the platform does not support MSR setting at S3 resume, and
+  // therefore it doesn't need the dependency semaphores, it should set
+  // this field to 0.
+  //
+  EFI_PHYSICAL_ADDRESS        ThreadCountPerCore;
+} CPU_STATUS_INFORMATION;
 
 //
 // Element of register table entry
@@ -33,7 +88,8 @@ typedef struct {
   UINT32         Index;                 // offset 4 - 7 //c: This is the register address
   UINT8          ValidBitStart;         // offset 8
   UINT8          ValidBitLength;        // offset 9
-  UINT16         Reserved;              // offset 10 - 11
+  BOOLEAN        TestThenWrite;         // offset 10
+  UINT8          Reserved1;             // offset 11
   UINT32         HighIndex;             // offset 12-15, only valid for MemoryMapped
   UINT64         Value;                 // offset 16-23
 } CPU_REGISTER_TABLE_ENTRY;
@@ -147,6 +203,20 @@ typedef struct {
   // provided.
   //
   UINT32                ApMachineCheckHandlerSize;
+  //
+  // CPU information which is required when set the register table.
+  //
+  CPU_STATUS_INFORMATION     CpuStatus;
+  //
+  // Location info for each AP.
+  // It points to an array which saves all APs location info.
+  // The array count is the AP count in this CPU.
+  //
+  // If the platform does not support MSR setting at S3 resume, and
+  // therefore it doesn't need the dependency semaphores, it should set
+  // this field to 0.
+  //
+  EFI_PHYSICAL_ADDRESS  ApLocation;
 } ACPI_CPU_DATA;
 
 #endif

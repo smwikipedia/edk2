@@ -5,13 +5,7 @@
   DVD-ROMs and floppy drives.
 
   Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -207,7 +201,7 @@ typedef struct {
 
 #define EFI_BLOCK_IO_PROTOCOL_REVISION  0x00010000
 #define EFI_BLOCK_IO_PROTOCOL_REVISION2 0x00020001
-#define EFI_BLOCK_IO_PROTOCOL_REVISION3 0x00020031
+#define EFI_BLOCK_IO_PROTOCOL_REVISION3 0x0002001F
 
 ///
 /// Revision defined in EFI1.1.

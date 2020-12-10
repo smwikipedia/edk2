@@ -13,14 +13,8 @@
 
 Copyright (c) 2018 Qualcomm Datacenter Technologies, Inc.
 Copyright (c) 2014, Hewlett-Packard Development Company, L.P.<BR>
-Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+Copyright (c) 2006 - 2019, Intel Corporation. All rights reserved.<BR>
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -141,14 +135,24 @@ PartitionInstallMbrChildHandles (
   EFI_DEVICE_PATH_PROTOCOL     *LastDevicePathNode;
   UINT32                       BlockSize;
   UINT32                       MediaId;
-  EFI_LBA                      LastBlock;
+  EFI_LBA                      LastSector;
   EFI_PARTITION_INFO_PROTOCOL  PartitionInfo;
 
   Found           = EFI_NOT_FOUND;
 
-  BlockSize = BlockIo->Media->BlockSize;
-  MediaId   = BlockIo->Media->MediaId;
-  LastBlock = BlockIo->Media->LastBlock;
+  BlockSize   = BlockIo->Media->BlockSize;
+  MediaId     = BlockIo->Media->MediaId;
+  LastSector  = DivU64x32 (
+                  MultU64x32 (BlockIo->Media->LastBlock + 1, BlockSize),
+                  MBR_SIZE
+                  ) - 1;
+
+  //
+  // Ensure the block size can hold the MBR
+  //
+  if (BlockSize < sizeof (MASTER_BOOT_RECORD)) {
+    return EFI_NOT_FOUND;
+  }
 
   Mbr = AllocatePool (BlockSize);
   if (Mbr == NULL) {
@@ -166,7 +170,7 @@ PartitionInstallMbrChildHandles (
     Found = Status;
     goto Done;
   }
-  if (!PartitionValidMbr (Mbr, LastBlock)) {
+  if (!PartitionValidMbr (Mbr, LastSector)) {
     goto Done;
   }
   //

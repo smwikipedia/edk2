@@ -2,13 +2,7 @@
   ACPI Table Protocol Driver
 
   Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -61,18 +55,21 @@
 //  Link is the linked list data.
 //  Version is the versions of the ACPI tables that this table belongs in.
 //  Table is a pointer to the table.
-//  PageAddress is the address of the pages allocated for the table.
-//  NumberOfPages is the number of pages allocated at PageAddress.
+//  TableSize is the size of the table
 //  Handle is used to identify a particular table.
+//  PoolAllocation carries the allocation type:
+//    FALSE: Table points to EFI_SIZE_TO_PAGES(TableSize) pages allocated using
+//           gBS->AllocatePages ()
+//    TRUE:  Table points to TableSize bytes allocated using gBS->AllocatePool ()
 //
 typedef struct {
   UINT32                  Signature;
   LIST_ENTRY              Link;
   EFI_ACPI_TABLE_VERSION  Version;
   EFI_ACPI_COMMON_HEADER  *Table;
-  EFI_PHYSICAL_ADDRESS    PageAddress;
-  UINTN                   NumberOfPages;
+  UINTN                   TableSize;
   UINTN                   Handle;
+  BOOLEAN                 PoolAllocation;
 } EFI_ACPI_TABLE_LIST;
 
 //

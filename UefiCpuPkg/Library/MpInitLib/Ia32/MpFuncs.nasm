@@ -1,12 +1,6 @@
 ;------------------------------------------------------------------------------ ;
-; Copyright (c) 2015 - 2018, Intel Corporation. All rights reserved.<BR>
-; This program and the accompanying materials
-; are licensed and made available under the terms and conditions of the BSD License
-; which accompanies this distribution.  The full text of the license may be found at
-; http://opensource.org/licenses/bsd-license.php.
-;
-; THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-; WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+; Copyright (c) 2015 - 2019, Intel Corporation. All rights reserved.<BR>
+; SPDX-License-Identifier: BSD-2-Clause-Patent
 ;
 ; Module Name:
 ;
@@ -87,12 +81,6 @@ Flat32Start:                                   ; protected mode entry point
 
     mov        esi, ebx
 
-    ; Increment the number of APs executing here as early as possible
-    ; This is decremented in C code when AP is finished executing
-    mov        edi, esi
-    add        edi, NumApsExecutingLocation
-    lock inc   dword [edi]
-
     mov         edi, esi
     add         edi, EnableExecuteDisableLocation
     cmp         byte [edi], 0
@@ -125,6 +113,12 @@ SkipEnableExecuteDisable:
     add        edi, InitFlagLocation
     cmp        dword [edi], 1       ; 1 == ApInitConfig
     jnz        GetApicId
+
+    ; Increment the number of APs executing here as early as possible
+    ; This is decremented in C code when AP is finished executing
+    mov        edi, esi
+    add        edi, NumApsExecutingLocation
+    lock inc   dword [edi]
 
     ; AP init
     mov        edi, esi
@@ -222,7 +216,20 @@ CProcedureInvoke:
 RendezvousFunnelProcEnd:
 
 ;-------------------------------------------------------------------------------------
-;  AsmRelocateApLoop (MwaitSupport, ApTargetCState, PmCodeSegment, TopOfApStack, CountTofinish);
+;SwitchToRealProc procedure follows.
+;NOT USED IN 32 BIT MODE.
+;-------------------------------------------------------------------------------------
+global ASM_PFX(SwitchToRealProc)
+ASM_PFX(SwitchToRealProc):
+SwitchToRealProcStart:
+    jmp        $                 ; Never reach here
+SwitchToRealProcEnd:
+
+;-------------------------------------------------------------------------------------
+;  AsmRelocateApLoop (MwaitSupport, ApTargetCState, PmCodeSegment, TopOfApStack, CountTofinish, Pm16CodeSegment, SevEsAPJumpTable, WakeupBuffer);
+;
+;  The last three parameters (Pm16CodeSegment, SevEsAPJumpTable and WakeupBuffer) are
+;  specific to SEV-ES support and are not applicable on IA32.
 ;-------------------------------------------------------------------------------------
 global ASM_PFX(AsmRelocateApLoop)
 ASM_PFX(AsmRelocateApLoop):
@@ -269,6 +276,11 @@ ASM_PFX(AsmGetAddressMap):
     mov        dword [ebx + 0Ch], AsmRelocateApLoopStart
     mov        dword [ebx + 10h], AsmRelocateApLoopEnd - AsmRelocateApLoopStart
     mov        dword [ebx + 14h], Flat32Start - RendezvousFunnelProcStart
+    mov        dword [ebx + 18h], SwitchToRealProcEnd - SwitchToRealProcStart       ; SwitchToRealSize
+    mov        dword [ebx + 1Ch], SwitchToRealProcStart - RendezvousFunnelProcStart ; SwitchToRealOffset
+    mov        dword [ebx + 20h], SwitchToRealProcStart - Flat32Start               ; SwitchToRealNoNxOffset
+    mov        dword [ebx + 24h], 0                                                 ; SwitchToRealPM16ModeOffset
+    mov        dword [ebx + 28h], 0                                                 ; SwitchToRealPM16ModeSize
 
     popad
     ret

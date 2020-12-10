@@ -1,13 +1,7 @@
 ;------------------------------------------------------------------------------
 ;
 ; Copyright (c) 2006, Intel Corporation. All rights reserved.<BR>
-; This program and the accompanying materials
-; are licensed and made available under the terms and conditions of the BSD License
-; which accompanies this distribution.  The full text of the license may be found at
-; http://opensource.org/licenses/bsd-license.php.
-;
-; THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-; WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+; SPDX-License-Identifier: BSD-2-Clause-Patent
 ;
 ; Module Name:
 ;
@@ -39,7 +33,7 @@ ASM_PFX(InternalMemSetMem16):
     mov     edi, [esp + 8]
     xor     ecx, ecx
     sub     ecx, edi
-    and     ecx, 15                     ; ecx + edi aligns on 16-byte boundary
+    and     ecx, 63                     ; ecx + edi aligns on 16-byte boundary
     mov     eax, [esp + 16]
     jz      .0
     shr     ecx, 1
@@ -49,15 +43,18 @@ ASM_PFX(InternalMemSetMem16):
     rep     stosw
 .0:
     mov     ecx, edx
-    and     edx, 7
-    shr     ecx, 3
+    and     edx, 31
+    shr     ecx, 5
     jz      @SetWords
     movd    xmm0, eax
     pshuflw xmm0, xmm0, 0
     movlhps xmm0, xmm0
 .1:
     movntdq [edi], xmm0                 ; edi should be 16-byte aligned
-    add     edi, 16
+    movntdq [edi + 16], xmm0
+    movntdq [edi + 32], xmm0
+    movntdq [edi + 48], xmm0
+    add     edi, 64
     loop    .1
     mfence
 @SetWords:

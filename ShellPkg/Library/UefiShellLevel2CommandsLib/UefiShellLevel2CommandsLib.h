@@ -10,13 +10,7 @@
 
 
   Copyright (c) 2009 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -49,7 +43,7 @@
 #include <Library/FileHandleLib.h>
 
 extern CONST  CHAR16                            mFileName[];
-extern        EFI_HANDLE                        gShellLevel2HiiHandle;
+extern        EFI_HII_HANDLE                    gShellLevel2HiiHandle;
 
 /**
   Function for 'attrib' command.
@@ -357,7 +351,7 @@ CopySingleFile(
   @retval SHELL_SUCCESS       The operation was successful.
   @retval SHELL_ACCESS_DENIED A file was read only.
   @retval SHELL_ABORTED       The abort message was received.
-  @retval SHELL_DEVICE_ERROR  A device error occured reading this Node.
+  @retval SHELL_DEVICE_ERROR  A device error occurred reading this Node.
 **/
 SHELL_STATUS
 CascadeDelete(

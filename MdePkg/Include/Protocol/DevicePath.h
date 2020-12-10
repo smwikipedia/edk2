@@ -6,13 +6,7 @@
   it can not contain things like PCI bus numbers that change from boot to boot.
 
 Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials are licensed and made available under
-the terms and conditions of the BSD License that accompanies this distribution.
-The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php.
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -287,6 +281,21 @@ typedef struct {
   // This device path may optionally contain more than one _ADR entry.
   //
 } ACPI_ADR_DEVICE_PATH;
+
+///
+/// ACPI NVDIMM Device Path SubType.
+///
+#define ACPI_NVDIMM_DP               0x04
+///
+///
+typedef struct {
+  EFI_DEVICE_PATH_PROTOCOL        Header;
+  ///
+  /// NFIT Device Handle, the _ADR of the NVDIMM device.
+  /// The value of this field comes from Section 9.20.3 of the ACPI 6.2A specification.
+  ///
+  UINT32                          NFITDeviceHandle;
+} ACPI_NVDIMM_DEVICE_PATH;
 
 #define ACPI_ADR_DISPLAY_TYPE_OTHER             0
 #define ACPI_ADR_DISPLAY_TYPE_VGA               1
@@ -717,6 +726,18 @@ typedef struct {
   ///
   UINT8                           StopBits;
 } UART_DEVICE_PATH;
+
+///
+/// NVDIMM Namespace Device Path SubType.
+///
+#define NVDIMM_NAMESPACE_DP               0x20
+typedef struct {
+  EFI_DEVICE_PATH_PROTOCOL        Header;
+  ///
+  /// Namespace unique label identifier UUID.
+  ///
+  EFI_GUID Uuid;
+} NVDIMM_NAMESPACE_DEVICE_PATH;
 
 //
 // Use VENDOR_DEVICE_PATH struct

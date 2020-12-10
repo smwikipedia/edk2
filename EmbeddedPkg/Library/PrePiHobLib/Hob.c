@@ -3,13 +3,7 @@
   Copyright (c) 2010, Apple Inc. All rights reserved.<BR>
   Copyright (c) 2017, Intel Corporation. All rights reserved.<BR>
 
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -174,47 +168,6 @@ BuildResourceDescriptorHob (
   Hob->PhysicalStart     = PhysicalStart;
   Hob->ResourceLength    = NumberOfBytes;
 }
-
-/**
-
-
-**/
-VOID
-CreateHobList (
-  IN VOID   *MemoryBegin,
-  IN UINTN  MemoryLength,
-  IN VOID   *HobBase,
-  IN VOID   *StackBase
-  )
-{
-  EFI_HOB_HANDOFF_INFO_TABLE  *Hob;
-  EFI_RESOURCE_ATTRIBUTE_TYPE Attributes;
-
-  Hob = HobConstructor (MemoryBegin,MemoryLength,HobBase,StackBase);
-  SetHobList (Hob);
-
-  BuildCpuHob (PcdGet8 (PcdPrePiCpuMemorySize), PcdGet8 (PcdPrePiCpuIoSize));
-
-  Attributes =(
-    EFI_RESOURCE_ATTRIBUTE_PRESENT |
-    EFI_RESOURCE_ATTRIBUTE_INITIALIZED |
-    EFI_RESOURCE_ATTRIBUTE_TESTED |
-    EFI_RESOURCE_ATTRIBUTE_UNCACHEABLE |
-    EFI_RESOURCE_ATTRIBUTE_WRITE_COMBINEABLE |
-    EFI_RESOURCE_ATTRIBUTE_WRITE_THROUGH_CACHEABLE |
-    EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE
-  );
-
-  BuildResourceDescriptorHob (EFI_RESOURCE_SYSTEM_MEMORY, Attributes, (UINTN)MemoryBegin, MemoryLength);
-
-  BuildStackHob ((EFI_PHYSICAL_ADDRESS)(UINTN)StackBase, ((UINTN)MemoryBegin + MemoryLength) - (UINTN)StackBase);
-
-  if (FeaturePcdGet (PcdPrePiProduceMemoryTypeInformationHob)) {
-    // Optional feature that helps prevent EFI memory map fragmentation.
-    BuildMemoryTypeInformationHob ();
-  }
-}
-
 
 VOID
 EFIAPI
@@ -859,7 +812,7 @@ BuildPeCoffLoaderHob (
   BuildGuidDataHob (&gPeCoffLoaderProtocolGuid, &Ptr, sizeof (VOID *));
 }
 
-// May want to put this into a library so you only need the PCD setings if you are using the feature?
+// May want to put this into a library so you only need the PCD settings if you are using the feature?
 VOID
 BuildMemoryTypeInformationHob (
   VOID

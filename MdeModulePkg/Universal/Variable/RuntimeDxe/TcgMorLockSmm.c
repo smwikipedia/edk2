@@ -5,13 +5,8 @@
   This module adds Variable Hook and check MemoryOverwriteRequestControlLock.
 
 Copyright (c) 2016 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+Copyright (c) Microsoft Corporation.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -21,8 +16,11 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Library/DebugLib.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
-#include <Library/UefiBootServicesTableLib.h>
 #include "Variable.h"
+
+#include <Protocol/VariablePolicy.h>
+#include <Library/VariablePolicyHelperLib.h>
+#include <Library/VariablePolicyLib.h>
 
 typedef struct {
   CHAR16                                 *VariableName;
@@ -348,6 +346,11 @@ SetVariableCheckHandlerMor (
     return EFI_SUCCESS;
   }
 
+  // Permit deletion when policy is disabled.
+  if (!IsVariablePolicyEnabled() && ((Attributes == 0) || (DataSize == 0))) {
+    return EFI_SUCCESS;
+  }
+
   //
   // MorLock variable
   //
@@ -419,8 +422,8 @@ MorLockInitAtEndOfDxe (
 {
   UINTN      MorSize;
   EFI_STATUS MorStatus;
-  EFI_STATUS TcgStatus;
-  VOID       *TcgInterface;
+  EFI_STATUS              Status;
+  VARIABLE_POLICY_ENTRY   *NewPolicy;
 
   if (!mMorLockInitializationRequired) {
     //
@@ -458,20 +461,7 @@ MorLockInitAtEndOfDxe (
     // can be deduced from the absence of the TCG / TCG2 protocols, as edk2's
     // MOR implementation depends on (one of) those protocols.
     //
-    TcgStatus = gBS->LocateProtocol (
-                       &gEfiTcg2ProtocolGuid,
-                       NULL,                     // Registration
-                       &TcgInterface
-                       );
-    if (EFI_ERROR (TcgStatus)) {
-      TcgStatus = gBS->LocateProtocol (
-                         &gEfiTcgProtocolGuid,
-                         NULL,                   // Registration
-                         &TcgInterface
-                         );
-    }
-
-    if (!EFI_ERROR (TcgStatus)) {
+    if (VariableHaveTcgProtocols ()) {
       //
       // The MOR variable originates from the platform firmware; set the MOR
       // Control Lock variable to report the locking capability to the OS.
@@ -506,11 +496,25 @@ MorLockInitAtEndOfDxe (
   // The MOR variable is absent; the platform firmware does not support it.
   // Lock the variable so that no other module may create it.
   //
-  VariableLockRequestToLock (
-    NULL,                                   // This
-    MEMORY_OVERWRITE_REQUEST_VARIABLE_NAME,
-    &gEfiMemoryOverwriteControlDataGuid
-    );
+  NewPolicy = NULL;
+  Status = CreateBasicVariablePolicy( &gEfiMemoryOverwriteControlDataGuid,
+                                      MEMORY_OVERWRITE_REQUEST_VARIABLE_NAME,
+                                      VARIABLE_POLICY_NO_MIN_SIZE,
+                                      VARIABLE_POLICY_NO_MAX_SIZE,
+                                      VARIABLE_POLICY_NO_MUST_ATTR,
+                                      VARIABLE_POLICY_NO_CANT_ATTR,
+                                      VARIABLE_POLICY_TYPE_LOCK_NOW,
+                                      &NewPolicy );
+  if (!EFI_ERROR( Status )) {
+    Status = RegisterVariablePolicy( NewPolicy );
+  }
+  if (EFI_ERROR( Status )) {
+    DEBUG(( DEBUG_ERROR, "%a - Failed to lock variable %s! %r\n", __FUNCTION__, MEMORY_OVERWRITE_REQUEST_VARIABLE_NAME, Status ));
+    ASSERT_EFI_ERROR( Status );
+  }
+  if (NewPolicy != NULL) {
+    FreePool( NewPolicy );
+  }
 
   //
   // Delete the MOR Control Lock variable too (should it exists for some
@@ -526,9 +530,23 @@ MorLockInitAtEndOfDxe (
     );
   mMorLockPassThru = FALSE;
 
-  VariableLockRequestToLock (
-    NULL,                                       // This
-    MEMORY_OVERWRITE_REQUEST_CONTROL_LOCK_NAME,
-    &gEfiMemoryOverwriteRequestControlLockGuid
-    );
+  NewPolicy = NULL;
+  Status = CreateBasicVariablePolicy( &gEfiMemoryOverwriteRequestControlLockGuid,
+                                      MEMORY_OVERWRITE_REQUEST_CONTROL_LOCK_NAME,
+                                      VARIABLE_POLICY_NO_MIN_SIZE,
+                                      VARIABLE_POLICY_NO_MAX_SIZE,
+                                      VARIABLE_POLICY_NO_MUST_ATTR,
+                                      VARIABLE_POLICY_NO_CANT_ATTR,
+                                      VARIABLE_POLICY_TYPE_LOCK_NOW,
+                                      &NewPolicy );
+  if (!EFI_ERROR( Status )) {
+    Status = RegisterVariablePolicy( NewPolicy );
+  }
+  if (EFI_ERROR( Status )) {
+    DEBUG(( DEBUG_ERROR, "%a - Failed to lock variable %s! %r\n", __FUNCTION__, MEMORY_OVERWRITE_REQUEST_CONTROL_LOCK_NAME, Status ));
+    ASSERT_EFI_ERROR( Status );
+  }
+  if (NewPolicy != NULL) {
+    FreePool( NewPolicy );
+  }
 }

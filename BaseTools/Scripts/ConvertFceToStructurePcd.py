@@ -6,13 +6,7 @@
 # PCD setting in DEC/DSC/INF files.
 #
 # Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
-# This program and the accompanying materials
-# are licensed and made available under the terms and conditions of the BSD License
-# which accompanies this distribution.  The full text of the license may be found at
-# http://opensource.org/licenses/bsd-license.php
-#
-# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 
 '''
@@ -135,7 +129,7 @@ class parser_lst(object):
                       tmp_dict[offset] = tmp_name
                       pcdname_num = int(pcdname_num_re.findall(t_name)[0],10)
                       uint = int(unit_num.findall(uint)[0],10)
-                      bit = uint / 8
+                      bit = uint // 8
                       for i in range(1, pcdname_num):
                         offset += bit
                         tmp_name = pcdname2_re.findall(t_name)[0] + '[%s]' % i
@@ -303,7 +297,10 @@ class Config(object):
     list1 = [t for t in list1 if t != '']  # remove '' form list
     first_num = int(list1[0], 16)
     if list1[first_num + 1] == 'STRING':  # parser STRING
-      value = 'L%s' % list1[-1]
+      if list1[-1] == '""':
+        value = "{0x0, 0x0}"
+      else:
+        value = 'L%s' % list1[-1]
     elif list1[first_num + 1] == 'ORDERED_LIST':  # parser ORDERED_LIST
       value_total = int(list1[first_num + 2])
       list2 = list1[-value_total:]
@@ -373,7 +370,7 @@ class PATH(object):
   def __init__(self,path):
     self.path=path
     self.rootdir=self.get_root_dir()
-    self.usefuldir=[]
+    self.usefuldir=set()
     self.lstinf = {}
     for path in self.rootdir:
       for o_root, o_dir, o_file in os.walk(os.path.join(path, "OUTPUT"), topdown=True, followlinks=False):
@@ -384,7 +381,7 @@ class PATH(object):
               for LST in l_file:
                 if os.path.splitext(LST)[1] == '.lst':
                   self.lstinf[os.path.join(l_root, LST)] = os.path.join(o_root, INF)
-                  self.usefuldir.append(path)
+                  self.usefuldir.add(path)
 
   def get_root_dir(self):
     rootdir=[]
@@ -413,7 +410,7 @@ class PATH(object):
 
   def header(self,struct):
     header={}
-    head_re = re.compile(r'} %s;[\s\S\n]+h{1}"'%struct,re.M|re.S)
+    head_re = re.compile('typedef.*} %s;[\n]+(.*)(?:typedef|formset)'%struct,re.M|re.S)
     head_re2 = re.compile(r'#line[\s\d]+"(\S+h)"')
     for i in list(self.lstinf.keys()):
       with open(i,'r') as lst:
@@ -424,9 +421,21 @@ class PATH(object):
         if head:
           format = head[0].replace('\\\\','/').replace('\\','/')
           name =format.split('/')[-1]
-          head = self.makefile(name).replace('\\','/')
-          header[struct] = head
+          head = self.headerfileset.get(name)
+          if head:
+            head = head.replace('\\','/')
+            header[struct] = head
     return header
+  @property
+  def headerfileset(self):
+    headerset = dict()
+    for root,dirs,files in os.walk(self.path):
+      for file in files:
+        if os.path.basename(file) == 'deps.txt':
+          with open(os.path.join(root,file),"r") as fr:
+            for line in fr.readlines():
+              headerset[os.path.basename(line).strip()] = line.strip()
+    return headerset
 
   def makefile(self,filename):
     re_format = re.compile(r'DEBUG_DIR.*(?:\S+Pkg)\\(.*\\%s)'%filename)
@@ -436,6 +445,7 @@ class PATH(object):
       dir = re_format.findall(read)
       if dir:
         return dir[0]
+    return None
 
 class mainprocess(object):
 
@@ -482,7 +492,7 @@ class mainprocess(object):
               WARNING.append("Warning: No <HeaderFiles> for struct %s"%struct)
               title2 = '%s%s|{0}|%s|0xFCD00000{\n <HeaderFiles>\n  %s\n <Packages>\n%s\n}\n' % (PCD_NAME, c_name, struct, '', self.LST.package()[self.lst_dict[lstfile]])
             header_list.append(title2)
-          else:
+          elif struct not in lst._ignore:
             struct_dict ={}
             print("ERROR: Struct %s can't found in lst file" %struct)
             ERRORMSG.append("ERROR: Struct %s can't found in lst file" %struct)
@@ -505,12 +515,27 @@ class mainprocess(object):
     inf_list = self.del_repeat(inf_list)
     header_list = self.plus(self.del_repeat(header_list))
     title_all=list(set(title_list))
-    info_list = self.del_repeat(info_list)
+    info_list = self.remove_bracket(self.del_repeat(info_list))
     for i in range(len(info_list)-1,-1,-1):
       if len(info_list[i]) == 0:
         info_list.remove(info_list[i])
+    for i in (inf_list, title_all, header_list):
+      i.sort()
     return keys,title_all,info_list,header_list,inf_list
 
+  def remove_bracket(self,List):
+    for i in List:
+      for j in i:
+        tmp = j.split("|")
+        if (('L"' in j) and ("[" in j)) or (tmp[1].strip() == '{0x0, 0x0}'):
+          tmp[0] = tmp[0][:tmp[0].index('[')]
+          List[List.index(i)][i.index(j)] = "|".join(tmp)
+        else:
+          List[List.index(i)][i.index(j)] = j
+    for i in List:
+      if type(i) == type([0,0]):
+        i.sort()
+    return List
 
   def write_all(self):
     title_flag=1

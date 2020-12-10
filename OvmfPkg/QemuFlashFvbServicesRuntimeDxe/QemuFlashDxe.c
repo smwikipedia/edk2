@@ -5,17 +5,14 @@
   Copyright (C) 2015, Red Hat, Inc.
   Copyright (c) 2009 - 2013, Intel Corporation. All rights reserved.<BR>
 
-  This program and the accompanying materials are licensed and made available
-  under the terms and conditions of the BSD License which accompanies this
-  distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
 #include <Library/UefiRuntimeLib.h>
+#include <Library/MemEncryptSevLib.h>
+#include <Library/VmgExitLib.h>
+#include <Register/Amd/Msr.h>
 
 #include "QemuFlash.h"
 
@@ -37,4 +34,43 @@ QemuFlashBeforeProbe (
   //
   // Do nothing
   //
+}
+
+/**
+  Write to QEMU Flash
+
+  @param[in] Ptr    Pointer to the location to write.
+  @param[in] Value  The value to write.
+
+**/
+VOID
+QemuFlashPtrWrite (
+  IN        volatile UINT8    *Ptr,
+  IN        UINT8             Value
+  )
+{
+  if (MemEncryptSevEsIsEnabled ()) {
+    MSR_SEV_ES_GHCB_REGISTER  Msr;
+    GHCB                      *Ghcb;
+    BOOLEAN                   InterruptState;
+
+    Msr.GhcbPhysicalAddress = AsmReadMsr64 (MSR_SEV_ES_GHCB);
+    Ghcb = Msr.Ghcb;
+
+    //
+    // Writing to flash is emulated by the hypervisor through the use of write
+    // protection. This won't work for an SEV-ES guest because the write won't
+    // be recognized as a true MMIO write, which would result in the required
+    // #VC exception. Instead, use the the VMGEXIT MMIO write support directly
+    // to perform the update.
+    //
+    VmgInit (Ghcb, &InterruptState);
+    Ghcb->SharedBuffer[0] = Value;
+    Ghcb->SaveArea.SwScratch = (UINT64) (UINTN) Ghcb->SharedBuffer;
+    VmgSetOffsetValid (Ghcb, GhcbSwScratch);
+    VmgExit (Ghcb, SVM_EXIT_MMIO_WRITE, (UINT64) (UINTN) Ptr, 1);
+    VmgDone (Ghcb, InterruptState);
+  } else {
+    *Ptr = Value;
+  }
 }

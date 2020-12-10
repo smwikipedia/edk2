@@ -1,13 +1,7 @@
 /** @file
 
   Copyright (c) 2014 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php.
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -857,6 +851,14 @@ UfsRwDeviceDesc (
     SwapLittleEndianToBigEndian ((UINT8*)&ReturnDataSize, sizeof (UINT16));
 
     if (Read) {
+      //
+      // Make sure the hardware device does not return more data than expected.
+      //
+      if (ReturnDataSize > Packet.InTransferLength) {
+        Status = EFI_DEVICE_ERROR;
+        goto Exit;
+      }
+
       CopyMem (Packet.InDataBuffer, (QueryResp + 1), ReturnDataSize);
       Packet.InTransferLength = ReturnDataSize;
     } else {
@@ -975,7 +977,10 @@ UfsRwFlags (
   }
 
   if (Trd->Ocs == 0) {
-    *Value = (UINT8)QueryResp->Tsf.Value;
+    //
+    // The 'FLAG VALUE' field is at byte offset 3 of QueryResp->Tsf.Value
+    //
+    *Value = *((UINT8*)&(QueryResp->Tsf.Value) + 3);
   } else {
     Status = EFI_DEVICE_ERROR;
   }
@@ -1170,8 +1175,15 @@ UfsExecScsiCmds (
   SwapLittleEndianToBigEndian ((UINT8*)&SenseDataLen, sizeof (UINT16));
 
   if ((Packet->SenseDataLength != 0) && (Packet->SenseData != NULL)) {
-    CopyMem (Packet->SenseData, Response->SenseData, SenseDataLen);
-    Packet->SenseDataLength = (UINT8)SenseDataLen;
+    //
+    // Make sure the hardware device does not return more data than expected.
+    //
+    if (SenseDataLen <= Packet->SenseDataLength) {
+      CopyMem (Packet->SenseData, Response->SenseData, SenseDataLen);
+      Packet->SenseDataLength = (UINT8)SenseDataLen;
+    } else {
+      Packet->SenseDataLength = 0;
+    }
   }
 
   //

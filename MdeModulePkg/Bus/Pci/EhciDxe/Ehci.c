@@ -12,13 +12,7 @@
   USB 2.0 device inserts.
 
 Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -997,7 +991,6 @@ EhcAsyncInterruptTransfer (
   URB                     *Urb;
   EFI_TPL                 OldTpl;
   EFI_STATUS              Status;
-  UINT8                   *Data;
 
   //
   // Validate parameters
@@ -1046,16 +1039,7 @@ EhcAsyncInterruptTransfer (
 
   EhcAckAllInterrupt (Ehc);
 
-  Data = AllocatePool (DataLength);
-
-  if (Data == NULL) {
-    DEBUG ((EFI_D_ERROR, "EhcAsyncInterruptTransfer: failed to allocate buffer\n"));
-
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-
-  Urb = EhcCreateUrb (
+  Urb = EhciInsertAsyncIntTransfer (
           Ehc,
           DeviceAddress,
           EndPointAddress,
@@ -1063,9 +1047,6 @@ EhcAsyncInterruptTransfer (
           *DataToggle,
           MaximumPacketLength,
           Translator,
-          EHC_INT_TRANSFER_ASYNC,
-          NULL,
-          Data,
           DataLength,
           CallBackFunction,
           Context,
@@ -1073,19 +1054,9 @@ EhcAsyncInterruptTransfer (
           );
 
   if (Urb == NULL) {
-    DEBUG ((EFI_D_ERROR, "EhcAsyncInterruptTransfer: failed to create URB\n"));
-
-    gBS->FreePool (Data);
     Status = EFI_OUT_OF_RESOURCES;
     goto ON_EXIT;
   }
-
-  //
-  // New asynchronous transfer must inserted to the head.
-  // Check the comments in EhcMoniteAsyncRequests
-  //
-  EhcLinkQhToPeriod (Ehc, Urb->Qh);
-  InsertHeadList (&Ehc->AsyncIntTransfers, &Urb->UrbList);
 
 ON_EXIT:
   Ehc->PciIo->Flush (Ehc->PciIo);

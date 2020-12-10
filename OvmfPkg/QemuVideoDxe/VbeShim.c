@@ -12,13 +12,7 @@
   Copyright (C) 2014, Red Hat, Inc.
   Copyright (c) 2013 - 2014, Intel Corporation. All rights reserved.<BR>
 
-  This program and the accompanying materials are licensed and made available
-  under the terms and conditions of the BSD License which accompanies this
-  distribution. The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS, WITHOUT
-  WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
 
 #include <IndustryStandard/LegacyVgaBios.h>
@@ -102,7 +96,7 @@ InstallVbeShim (
   // The allocation request may fail, eg. if LegacyBiosDxe has already run.
   //
   Segment0Pages = 1;
-  Int0x10       = (IVT_ENTRY *)(UINTN)Segment0 + 0x10;
+  Int0x10       = (IVT_ENTRY *)(UINTN)(Segment0 + 0x10 * sizeof (IVT_ENTRY));
   Segment0AllocationStatus = gBS->AllocatePages (
                                     AllocateAddress,
                                     EfiBootServicesCode,
@@ -120,7 +114,7 @@ InstallVbeShim (
     //
     Handler = (Int0x10->Segment << 4) + Int0x10->Offset;
     if (Handler >= SegmentC && Handler < SegmentF) {
-      DEBUG ((EFI_D_INFO, "%a: Video BIOS handler found at %04x:%04x\n",
+      DEBUG ((DEBUG_INFO, "%a: Video BIOS handler found at %04x:%04x\n",
         __FUNCTION__, Int0x10->Segment, Int0x10->Offset));
       return;
     }
@@ -318,5 +312,5 @@ InstallVbeShim (
   Int0x10->Segment = (UINT16) ((UINT32)SegmentC >> 4);
   Int0x10->Offset  = (UINT16) ((UINTN) (VbeModeInfo + 1) - SegmentC);
 
-  DEBUG ((EFI_D_INFO, "%a: VBE shim installed\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "%a: VBE shim installed\n", __FUNCTION__));
 }

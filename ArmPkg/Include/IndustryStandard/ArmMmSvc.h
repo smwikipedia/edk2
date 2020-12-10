@@ -2,13 +2,7 @@
 *
 *  Copyright (c) 2012-2017, ARM Limited. All rights reserved.
 *
-*  This program and the accompanying materials
-*  are licensed and made available under the terms and conditions of the BSD License
-*  which accompanies this distribution.  The full text of the license may be found at
-*  http://opensource.org/licenses/bsd-license.php
-*
-*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+*  SPDX-License-Identifier: BSD-2-Clause-Patent
 *
 **/
 
@@ -20,7 +14,7 @@
  * delegated events and request the Secure partition manager to perform
  * privileged operations on its behalf.
  */
-#define ARM_SVC_ID_SPM_VERSION_AARCH64             0xC4000060
+#define ARM_SVC_ID_SPM_VERSION_AARCH32             0x84000060
 #define ARM_SVC_ID_SP_EVENT_COMPLETE_AARCH64       0xC4000061
 #define ARM_SVC_ID_SP_GET_MEM_ATTRIBUTES_AARCH64   0xC4000064
 #define ARM_SVC_ID_SP_SET_MEM_ATTRIBUTES_AARCH64   0xC4000065
@@ -39,5 +33,12 @@
 #define SET_MEM_ATTR_MAKE_PERM_REQUEST(d_perm, c_perm)                            \
     ((((c_perm) & SET_MEM_ATTR_CODE_PERM_MASK) << SET_MEM_ATTR_CODE_PERM_SHIFT) | \
     (( (d_perm) & SET_MEM_ATTR_DATA_PERM_MASK) << SET_MEM_ATTR_DATA_PERM_SHIFT))
+
+/* MM SVC Return error codes */
+#define ARM_SVC_SPM_RET_SUCCESS               0
+#define ARM_SVC_SPM_RET_NOT_SUPPORTED        -1
+#define ARM_SVC_SPM_RET_INVALID_PARAMS       -2
+#define ARM_SVC_SPM_RET_DENIED               -3
+#define ARM_SVC_SPM_RET_NO_MEMORY            -5
 
 #endif

@@ -3,13 +3,7 @@ Entry and initialization module for the browser.
 
 Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
 Copyright (c) 2014, Hewlett-Packard Development Company, L.P.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -378,7 +372,7 @@ GetWidth (
 {
   CHAR16                        *String;
   UINTN                         Size;
-  EFI_IFR_TEXT                  *TestOp;
+  EFI_IFR_TEXT                  *TextOp;
   UINT16                        ReturnWidth;
   FORM_DISPLAY_ENGINE_STATEMENT *Statement;
 
@@ -400,9 +394,9 @@ GetWidth (
   // See if the second text parameter is really NULL
   //
   if (Statement->OpCode->OpCode == EFI_IFR_TEXT_OP) {
-    TestOp = (EFI_IFR_TEXT *) Statement->OpCode;
-    if (TestOp->TextTwo != 0) {
-      String = GetToken (TestOp->TextTwo, gFormData->HiiHandle);
+    TextOp = (EFI_IFR_TEXT *) Statement->OpCode;
+    if (TextOp->TextTwo != 0) {
+      String = GetToken (TextOp->TextTwo, gFormData->HiiHandle);
       Size   = StrLen (String);
       FreePool (String);
     }
@@ -2172,7 +2166,7 @@ HasOptionString (
   FORM_DISPLAY_ENGINE_STATEMENT   *Statement;
   CHAR16                          *String;
   UINTN                           Size;
-  EFI_IFR_TEXT                    *TestOp;
+  EFI_IFR_TEXT                    *TextOp;
 
   Size = 0;
   Statement = MenuOption->ThisTag;
@@ -2181,9 +2175,9 @@ HasOptionString (
   // See if the second text parameter is really NULL
   //
   if (Statement->OpCode->OpCode == EFI_IFR_TEXT_OP) {
-    TestOp = (EFI_IFR_TEXT *) Statement->OpCode;
-    if (TestOp->TextTwo != 0) {
-      String = GetToken (TestOp->TextTwo, gFormData->HiiHandle);
+    TextOp = (EFI_IFR_TEXT *) Statement->OpCode;
+    if (TextOp->TextTwo != 0) {
+      String = GetToken (TextOp->TextTwo, gFormData->HiiHandle);
       Size   = StrLen (String);
       FreePool (String);
     }
@@ -2882,6 +2876,7 @@ UiDisplayMenu (
       //
       ControlFlag = CfUpdateHelpString;
 
+      ASSERT (NewPos != NULL);
       UpdateHighlightMenuInfo(NewPos, TopOfScreen, SkipValue);
 
       if (SkipHighLight) {
@@ -2910,7 +2905,7 @@ UiDisplayMenu (
         Temp2 = 0;
       }
 
-      if (NewPos != NULL && (MenuOption == NULL || NewPos != &MenuOption->Link)) {
+      if (MenuOption == NULL || NewPos != &MenuOption->Link) {
         if (MenuOption != NULL) {
           //
           // Remove the old highlight menu.

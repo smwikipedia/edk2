@@ -1,14 +1,8 @@
 /** @file
   Initialize TPM device and measure FVs before handing off control to DXE.
 
-Copyright (c) 2005 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+Copyright (c) 2005 - 2020, Intel Corporation. All rights reserved.<BR>
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -23,10 +17,12 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Ppi/FirmwareVolume.h>
 #include <Ppi/EndOfPeiPhase.h>
 #include <Ppi/FirmwareVolumeInfoMeasurementExcluded.h>
+#include <Ppi/Tcg.h>
 
 #include <Guid/TcgEventHob.h>
 #include <Guid/MeasuredFvHob.h>
 #include <Guid/TpmInstance.h>
+#include <Guid/MigratedFvInfo.h>
 
 #include <Library/DebugLib.h>
 #include <Library/BaseMemoryLib.h>
@@ -57,10 +53,56 @@ EFI_PEI_PPI_DESCRIPTOR  mTpmInitializationDonePpiList = {
   NULL
 };
 
+/**
+  Do a hash operation on a data buffer, extend a specific TPM PCR with the hash result,
+  and build a GUIDed HOB recording the event which will be passed to the DXE phase and
+  added into the Event Log.
+
+  @param[in]      This          Indicates the calling context
+  @param[in]      Flags         Bitmap providing additional information.
+  @param[in]      HashData      Physical address of the start of the data buffer
+                                to be hashed, extended, and logged.
+  @param[in]      HashDataLen   The length, in bytes, of the buffer referenced by HashData.
+  @param[in]      NewEventHdr   Pointer to a TCG_PCR_EVENT_HDR data structure.
+  @param[in]      NewEventData  Pointer to the new event data.
+
+  @retval EFI_SUCCESS           Operation completed successfully.
+  @retval EFI_OUT_OF_RESOURCES  No enough memory to log the new event.
+  @retval EFI_DEVICE_ERROR      The command was unsuccessful.
+
+**/
+EFI_STATUS
+EFIAPI
+HashLogExtendEvent (
+  IN      EDKII_TCG_PPI             *This,
+  IN      UINT64                    Flags,
+  IN      UINT8                     *HashData,
+  IN      UINTN                     HashDataLen,
+  IN      TCG_PCR_EVENT_HDR         *NewEventHdr,
+  IN      UINT8                     *NewEventData
+  );
+
+EDKII_TCG_PPI mEdkiiTcgPpi = {
+  HashLogExtendEvent
+};
+
+EFI_PEI_PPI_DESCRIPTOR  mTcgPpiList = {
+  EFI_PEI_PPI_DESCRIPTOR_PPI | EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST,
+  &gEdkiiTcgPpiGuid,
+  &mEdkiiTcgPpi
+};
+
+//
+// Number of firmware blobs to grow by each time we run out of room
+//
+#define FIRMWARE_BLOB_GROWTH_STEP 4
+
 EFI_PLATFORM_FIRMWARE_BLOB *mMeasuredBaseFvInfo;
+UINT32 mMeasuredMaxBaseFvIndex = 0;
 UINT32 mMeasuredBaseFvIndex = 0;
 
 EFI_PLATFORM_FIRMWARE_BLOB *mMeasuredChildFvInfo;
+UINT32 mMeasuredMaxChildFvIndex = 0;
 UINT32 mMeasuredChildFvIndex = 0;
 
 EFI_PEI_FIRMWARE_VOLUME_INFO_MEASUREMENT_EXCLUDED_PPI *mMeasurementExcludedFvPpi;
@@ -84,7 +126,7 @@ PhysicalPresencePpiNotifyCallback (
   );
 
 /**
-  Measure and record the Firmware Volum Information once FvInfoPPI install.
+  Measure and record the Firmware Volume Information once FvInfoPPI install.
 
   @param[in] PeiServices       An indirect pointer to the EFI_PEI_SERVICES table published by the PEI Foundation.
   @param[in] NotifyDescriptor  Address of the notification descriptor data structure.
@@ -96,14 +138,14 @@ PhysicalPresencePpiNotifyCallback (
 **/
 EFI_STATUS
 EFIAPI
-FirmwareVolmeInfoPpiNotifyCallback (
+FirmwareVolumeInfoPpiNotifyCallback (
   IN EFI_PEI_SERVICES              **PeiServices,
   IN EFI_PEI_NOTIFY_DESCRIPTOR     *NotifyDescriptor,
   IN VOID                          *Ppi
   );
 
 /**
-  Record all measured Firmware Volum Information into a Guid Hob
+  Record all measured Firmware Volume Information into a Guid Hob
 
   @param[in] PeiServices       An indirect pointer to the EFI_PEI_SERVICES table published by the PEI Foundation.
   @param[in] NotifyDescriptor  Address of the notification descriptor data structure.
@@ -130,12 +172,12 @@ EFI_PEI_NOTIFY_DESCRIPTOR           mNotifyList[] = {
   {
     EFI_PEI_PPI_DESCRIPTOR_NOTIFY_CALLBACK,
     &gEfiPeiFirmwareVolumeInfoPpiGuid,
-    FirmwareVolmeInfoPpiNotifyCallback
+    FirmwareVolumeInfoPpiNotifyCallback
   },
   {
     EFI_PEI_PPI_DESCRIPTOR_NOTIFY_CALLBACK,
     &gEfiPeiFirmwareVolumeInfo2PpiGuid,
-    FirmwareVolmeInfoPpiNotifyCallback
+    FirmwareVolumeInfoPpiNotifyCallback
   },
   {
     (EFI_PEI_PPI_DESCRIPTOR_NOTIFY_CALLBACK | EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST),
@@ -145,7 +187,7 @@ EFI_PEI_NOTIFY_DESCRIPTOR           mNotifyList[] = {
 };
 
 /**
-  Record all measured Firmware Volum Information into a Guid Hob
+  Record all measured Firmware Volume Information into a Guid Hob
   Guid Hob payload layout is
 
      UINT32 *************************** FIRMWARE_BLOB number
@@ -242,7 +284,8 @@ TpmCommHashAll (
   and build a GUIDed HOB recording the event which will be passed to the DXE phase and
   added into the Event Log.
 
-  @param[in]      PeiServices   Describes the list of possible PEI Services.
+  @param[in]      This          Indicates the calling context.
+  @param[in]      Flags         Bitmap providing additional information.
   @param[in]      HashData      Physical address of the start of the data buffer
                                 to be hashed, extended, and logged.
   @param[in]      HashDataLen   The length, in bytes, of the buffer referenced by HashData.
@@ -255,8 +298,10 @@ TpmCommHashAll (
 
 **/
 EFI_STATUS
+EFIAPI
 HashLogExtendEvent (
-  IN      EFI_PEI_SERVICES          **PeiServices,
+  IN      EDKII_TCG_PPI             *This,
+  IN      UINT64                    Flags,
   IN      UINT8                     *HashData,
   IN      UINTN                     HashDataLen,
   IN      TCG_PCR_EVENT_HDR         *NewEventHdr,
@@ -345,7 +390,8 @@ MeasureCRTMVersion (
   TcgEventHdr.EventSize = (UINT32) StrSize((CHAR16*)PcdGetPtr (PcdFirmwareVersionString));
 
   return HashLogExtendEvent (
-           PeiServices,
+           &mEdkiiTcgPpi,
+           0,
            (UINT8*)PcdGetPtr (PcdFirmwareVersionString),
            TcgEventHdr.EventSize,
            &TcgEventHdr,
@@ -377,6 +423,10 @@ MeasureFvImage (
   EFI_STATUS                        Status;
   EFI_PLATFORM_FIRMWARE_BLOB        FvBlob;
   TCG_PCR_EVENT_HDR                 TcgEventHdr;
+  EFI_PHYSICAL_ADDRESS              FvOrgBase;
+  EFI_PHYSICAL_ADDRESS              FvDataBase;
+  EFI_PEI_HOB_POINTERS              Hob;
+  EDKII_MIGRATED_FV_INFO            *MigratedFvInfo;
 
   //
   // Check if it is in Excluded FV list
@@ -401,9 +451,29 @@ MeasureFvImage (
   }
 
   //
+  // Search the matched migration FV info
+  //
+  FvOrgBase  = FvBase;
+  FvDataBase = FvBase;
+  Hob.Raw  = GetFirstGuidHob (&gEdkiiMigratedFvInfoGuid);
+  while (Hob.Raw != NULL) {
+    MigratedFvInfo = GET_GUID_HOB_DATA (Hob);
+    if ((MigratedFvInfo->FvNewBase == (UINT32) FvBase) && (MigratedFvInfo->FvLength == (UINT32) FvLength)) {
+      //
+      // Found the migrated FV info
+      //
+      FvOrgBase  = (EFI_PHYSICAL_ADDRESS) (UINTN) MigratedFvInfo->FvOrgBase;
+      FvDataBase = (EFI_PHYSICAL_ADDRESS) (UINTN) MigratedFvInfo->FvDataBase;
+      break;
+    }
+    Hob.Raw = GET_NEXT_HOB (Hob);
+    Hob.Raw = GetNextGuidHob (&gEdkiiMigratedFvInfoGuid, Hob.Raw);
+  }
+
+  //
   // Measure and record the FV to the TPM
   //
-  FvBlob.BlobBase   = FvBase;
+  FvBlob.BlobBase   = FvOrgBase;
   FvBlob.BlobLength = FvLength;
 
   DEBUG ((DEBUG_INFO, "The FV which is measured by TcgPei starts at: 0x%x\n", FvBlob.BlobBase));
@@ -414,8 +484,9 @@ MeasureFvImage (
   TcgEventHdr.EventSize = sizeof (FvBlob);
 
   Status = HashLogExtendEvent (
-             (EFI_PEI_SERVICES **) GetPeiServicesTablePointer(),
-             (UINT8*) (UINTN) FvBlob.BlobBase,
+             &mEdkiiTcgPpi,
+             0,
+             (UINT8*) (UINTN) FvDataBase,
              (UINTN) FvBlob.BlobLength,
              &TcgEventHdr,
              (UINT8*) &FvBlob
@@ -424,12 +495,19 @@ MeasureFvImage (
   //
   // Add new FV into the measured FV list.
   //
-  ASSERT (mMeasuredBaseFvIndex < PcdGet32 (PcdPeiCoreMaxFvSupported));
-  if (mMeasuredBaseFvIndex < PcdGet32 (PcdPeiCoreMaxFvSupported)) {
-    mMeasuredBaseFvInfo[mMeasuredBaseFvIndex].BlobBase   = FvBase;
-    mMeasuredBaseFvInfo[mMeasuredBaseFvIndex].BlobLength = FvLength;
-    mMeasuredBaseFvIndex++;
+  if (mMeasuredBaseFvIndex >= mMeasuredMaxBaseFvIndex) {
+    mMeasuredBaseFvInfo = ReallocatePool (
+                            sizeof (EFI_PLATFORM_FIRMWARE_BLOB) * mMeasuredMaxBaseFvIndex,
+                            sizeof (EFI_PLATFORM_FIRMWARE_BLOB) * (mMeasuredMaxBaseFvIndex + FIRMWARE_BLOB_GROWTH_STEP),
+                            mMeasuredBaseFvInfo
+                            );
+    ASSERT (mMeasuredBaseFvInfo != NULL);
+    mMeasuredMaxBaseFvIndex = mMeasuredMaxBaseFvIndex + FIRMWARE_BLOB_GROWTH_STEP;
   }
+
+  mMeasuredBaseFvInfo[mMeasuredBaseFvIndex].BlobBase   = FvBase;
+  mMeasuredBaseFvInfo[mMeasuredBaseFvIndex].BlobLength = FvLength;
+  mMeasuredBaseFvIndex++;
 
   return Status;
 }
@@ -493,7 +571,7 @@ MeasureMainBios (
 }
 
 /**
-  Measure and record the Firmware Volum Information once FvInfoPPI install.
+  Measure and record the Firmware Volume Information once FvInfoPPI install.
 
   @param[in] PeiServices       An indirect pointer to the EFI_PEI_SERVICES table published by the PEI Foundation.
   @param[in] NotifyDescriptor  Address of the notification descriptor data structure.
@@ -505,7 +583,7 @@ MeasureMainBios (
 **/
 EFI_STATUS
 EFIAPI
-FirmwareVolmeInfoPpiNotifyCallback (
+FirmwareVolumeInfoPpiNotifyCallback (
   IN EFI_PEI_SERVICES               **PeiServices,
   IN EFI_PEI_NOTIFY_DESCRIPTOR      *NotifyDescriptor,
   IN VOID                           *Ppi
@@ -537,20 +615,26 @@ FirmwareVolmeInfoPpiNotifyCallback (
   //
   if (Fv->ParentFvName != NULL || Fv->ParentFileName != NULL ) {
 
-    ASSERT (mMeasuredChildFvIndex < PcdGet32 (PcdPeiCoreMaxFvSupported));
-    if (mMeasuredChildFvIndex < PcdGet32 (PcdPeiCoreMaxFvSupported)) {
-      //
-      // Check whether FV is in the measured child FV list.
-      //
-      for (Index = 0; Index < mMeasuredChildFvIndex; Index++) {
-        if (mMeasuredChildFvInfo[Index].BlobBase == (EFI_PHYSICAL_ADDRESS) (UINTN) Fv->FvInfo) {
-          return EFI_SUCCESS;
-        }
-      }
-      mMeasuredChildFvInfo[mMeasuredChildFvIndex].BlobBase   = (EFI_PHYSICAL_ADDRESS) (UINTN) Fv->FvInfo;
-      mMeasuredChildFvInfo[mMeasuredChildFvIndex].BlobLength = Fv->FvInfoSize;
-      mMeasuredChildFvIndex++;
+    if (mMeasuredChildFvIndex >= mMeasuredMaxChildFvIndex) {
+      mMeasuredChildFvInfo = ReallocatePool (
+                               sizeof (EFI_PLATFORM_FIRMWARE_BLOB) * mMeasuredMaxChildFvIndex,
+                               sizeof (EFI_PLATFORM_FIRMWARE_BLOB) * (mMeasuredMaxChildFvIndex + FIRMWARE_BLOB_GROWTH_STEP),
+                               mMeasuredChildFvInfo
+                               );
+      ASSERT (mMeasuredChildFvInfo != NULL);
+      mMeasuredMaxChildFvIndex = mMeasuredMaxChildFvIndex + FIRMWARE_BLOB_GROWTH_STEP;
     }
+    //
+    // Check whether FV is in the measured child FV list.
+    //
+    for (Index = 0; Index < mMeasuredChildFvIndex; Index++) {
+      if (mMeasuredChildFvInfo[Index].BlobBase == (EFI_PHYSICAL_ADDRESS) (UINTN) Fv->FvInfo) {
+        return EFI_SUCCESS;
+      }
+    }
+    mMeasuredChildFvInfo[mMeasuredChildFvIndex].BlobBase   = (EFI_PHYSICAL_ADDRESS) (UINTN) Fv->FvInfo;
+    mMeasuredChildFvInfo[mMeasuredChildFvIndex].BlobLength = Fv->FvInfoSize;
+    mMeasuredChildFvIndex++;
     return EFI_SUCCESS;
   }
 
@@ -658,7 +742,7 @@ PhysicalPresencePpiNotifyCallback (
 }
 
 /**
-  Check if TPM chip is activeated or not.
+  Check if TPM chip is activated or not.
 
   @param[in]      PeiServices   Describes the list of possible PEI Services.
 
@@ -707,11 +791,6 @@ PeimEntryMP (
                );
   // Do not check status, because it is optional
 
-  mMeasuredBaseFvInfo  = (EFI_PLATFORM_FIRMWARE_BLOB *) AllocateZeroPool (sizeof (EFI_PLATFORM_FIRMWARE_BLOB) * PcdGet32 (PcdPeiCoreMaxFvSupported));
-  ASSERT (mMeasuredBaseFvInfo != NULL);
-  mMeasuredChildFvInfo = (EFI_PLATFORM_FIRMWARE_BLOB *) AllocateZeroPool (sizeof (EFI_PLATFORM_FIRMWARE_BLOB) * PcdGet32 (PcdPeiCoreMaxFvSupported));
-  ASSERT (mMeasuredChildFvInfo != NULL);
-
   Status = Tpm12RequestUseTpm ();
   if (EFI_ERROR (Status)) {
     return Status;
@@ -733,6 +812,12 @@ PeimEntryMP (
   // lock the TPM
   //
   Status = PeiServicesNotifyPpi (&mNotifyList[0]);
+  ASSERT_EFI_ERROR (Status);
+
+  //
+  // install Tcg Services
+  //
+  Status = PeiServicesInstallPpi (&mTcgPpiList);
   ASSERT_EFI_ERROR (Status);
 
   return Status;
@@ -815,7 +900,7 @@ PeimEntryMA (
     }
 
     //
-    // Only intall TpmInitializedPpi on success
+    // Only install TpmInitializedPpi on success
     //
     Status = PeiServicesInstallPpi (&mTpmInitializedPpiList);
     ASSERT_EFI_ERROR (Status);
@@ -836,7 +921,7 @@ Done:
       );
   }
   //
-  // Always intall TpmInitializationDonePpi no matter success or fail.
+  // Always install TpmInitializationDonePpi no matter success or fail.
   // Other driver can know TPM initialization state by TpmInitializedPpi.
   //
   Status2 = PeiServicesInstallPpi (&mTpmInitializationDonePpiList);

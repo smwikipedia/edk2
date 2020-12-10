@@ -2,13 +2,7 @@
   Functions to deal with Disk buffer.
 
   Copyright (c) 2005 - 2018, Intel Corporation. All rights reserved. <BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -41,7 +35,7 @@ HEFI_EDITOR_DISK_IMAGE            HDiskImageConst = {
   Initialization function for HDiskImage.
 
   @retval EFI_SUCCESS     The operation was successful.
-  @retval EFI_LOAD_ERROR  A load error occured.
+  @retval EFI_LOAD_ERROR  A load error occurred.
 **/
 EFI_STATUS
 HDiskImageInit (
@@ -153,7 +147,7 @@ HDiskImageSetDiskNameOffsetSize (
 
   @retval EFI_SUCCESS           The operation was successful.
   @retval EFI_OUT_OF_RESOURCES  A memory allocation failed.
-  @retval EFI_LOAD_ERROR        A load error occured.
+  @retval EFI_LOAD_ERROR        A load error occurred.
   @retval EFI_INVALID_PARAMETER A parameter was invalid.
 **/
 EFI_STATUS
@@ -325,7 +319,7 @@ HDiskImageRead (
 
   @retval EFI_SUCCESS           The operation was successful.
   @retval EFI_OUT_OF_RESOURCES  A memory allocation failed.
-  @retval EFI_LOAD_ERROR        A load error occured.
+  @retval EFI_LOAD_ERROR        A load error occurred.
   @retval EFI_INVALID_PARAMETER A parameter was invalid.
 **/
 EFI_STATUS

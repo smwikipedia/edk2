@@ -1,14 +1,8 @@
 /** @file
   C functions in SEC
 
-  Copyright (c) 2008 - 2018, Intel Corporation. All rights reserved.<BR>
-  This program and the accompanying materials
-  are licensed and made available under the terms and conditions of the BSD License
-  which accompanies this distribution.  The full text of the license may be found at
-  http://opensource.org/licenses/bsd-license.php
-
-  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+  Copyright (c) 2008 - 2019, Intel Corporation. All rights reserved.<BR>
+  SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -232,23 +226,62 @@ SecStartupPhase2(
   EFI_PEI_PPI_DESCRIPTOR      *AllSecPpiList;
   EFI_PEI_CORE_ENTRY_POINT    PeiCoreEntryPoint;
 
+  PeiCoreEntryPoint = NULL;
   SecCoreData   = (EFI_SEC_PEI_HAND_OFF *) Context;
-  AllSecPpiList = (EFI_PEI_PPI_DESCRIPTOR *) SecCoreData->PeiTemporaryRamBase;
-  //
-  // Find Pei Core entry point. It will report SEC and Pei Core debug information if remote debug
-  // is enabled.
-  //
-  FindAndReportEntryPoints ((EFI_FIRMWARE_VOLUME_HEADER *) SecCoreData->BootFirmwareVolumeBase, &PeiCoreEntryPoint);
-  if (PeiCoreEntryPoint == NULL)
-  {
-    CpuDeadLoop ();
-  }
 
   //
   // Perform platform specific initialization before entering PeiCore.
   //
   PpiList = SecPlatformMain (SecCoreData);
+  //
+  // Find Pei Core entry point. It will report SEC and Pei Core debug information if remote debug
+  // is enabled.
+  //
   if (PpiList != NULL) {
+    Index = 0;
+    do {
+      if (CompareGuid (PpiList[Index].Guid, &gEfiPeiCoreFvLocationPpiGuid) &&
+          (((EFI_PEI_CORE_FV_LOCATION_PPI *) PpiList[Index].Ppi)->PeiCoreFvLocation != 0)
+         ) {
+        //
+        // In this case, SecCore is in BFV but PeiCore is in another FV reported by PPI.
+        //
+        FindAndReportEntryPoints (
+          (EFI_FIRMWARE_VOLUME_HEADER *) SecCoreData->BootFirmwareVolumeBase,
+          (EFI_FIRMWARE_VOLUME_HEADER *) ((EFI_PEI_CORE_FV_LOCATION_PPI *) PpiList[Index].Ppi)->PeiCoreFvLocation,
+          &PeiCoreEntryPoint
+          );
+        if (PeiCoreEntryPoint != NULL) {
+          break;
+        } else {
+          //
+          // Invalid PeiCore FV provided by platform
+          //
+          CpuDeadLoop ();
+        }
+      }
+    } while ((PpiList[Index++].Flags & EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST) != EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST);
+  }
+  //
+  // If EFI_PEI_CORE_FV_LOCATION_PPI not found, try to locate PeiCore from BFV.
+  //
+  if (PeiCoreEntryPoint == NULL) {
+    //
+    // Both SecCore and PeiCore are in BFV.
+    //
+    FindAndReportEntryPoints (
+      (EFI_FIRMWARE_VOLUME_HEADER *) SecCoreData->BootFirmwareVolumeBase,
+      (EFI_FIRMWARE_VOLUME_HEADER *) SecCoreData->BootFirmwareVolumeBase,
+      &PeiCoreEntryPoint
+      );
+    if (PeiCoreEntryPoint == NULL) {
+      CpuDeadLoop ();
+    }
+  }
+
+  if (PpiList != NULL) {
+    AllSecPpiList = (EFI_PEI_PPI_DESCRIPTOR *) SecCoreData->PeiTemporaryRamBase;
+
     //
     // Remove the terminal flag from the terminal PPI
     //
@@ -337,12 +370,34 @@ SecTemporaryRamDone (
   VOID
   )
 {
-  BOOLEAN  State;
+  EFI_STATUS                    Status;
+  EFI_STATUS                    Status2;
+  UINTN                         Index;
+  BOOLEAN                       State;
+  EFI_PEI_PPI_DESCRIPTOR        *PeiPpiDescriptor;
+  REPUBLISH_SEC_PPI_PPI         *RepublishSecPpiPpi;
 
   //
   // Republish Sec Platform Information(2) PPI
   //
   RepublishSecPlatformInformationPpi ();
+
+  //
+  // Re-install SEC PPIs using a PEIM produced service if published
+  //
+  for (Index = 0, Status = EFI_SUCCESS; Status == EFI_SUCCESS; Index++) {
+    Status = PeiServicesLocatePpi (
+               &gRepublishSecPpiPpiGuid,
+               Index,
+               &PeiPpiDescriptor,
+               (VOID **) &RepublishSecPpiPpi
+               );
+    if (!EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "Calling RepublishSecPpi instance %d.\n", Index));
+      Status2 = RepublishSecPpiPpi->RepublishSecPpis ();
+      ASSERT_EFI_ERROR (Status2);
+    }
+  }
 
   //
   // Migrate DebugAgentContext.
@@ -352,7 +407,7 @@ SecTemporaryRamDone (
   //
   // Disable interrupts and save current interrupt state
   //
-  State = SaveAndDisableInterrupts();
+  State = SaveAndDisableInterrupts ();
 
   //
   // Disable Temporary RAM after Stack and Heap have been migrated at this point.

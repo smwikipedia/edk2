@@ -2,13 +2,7 @@
   DXE Core Main Entry Point
 
 Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-This program and the accompanying materials
-are licensed and made available under the terms and conditions of the BSD License
-which accompanies this distribution.  The full text of the license may be found at
-http://opensource.org/licenses/bsd-license.php
-
-THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 
@@ -305,6 +299,14 @@ DxeMain (
   PERF_CROSSMODULE_BEGIN ("DXE");
 
   //
+  // Log MemoryBaseAddress and MemoryLength again (from
+  // CoreInitializeMemoryServices()), now that library constructors have
+  // executed.
+  //
+  DEBUG ((DEBUG_INFO, "%a: MemoryBaseAddress=0x%Lx MemoryLength=0x%Lx\n",
+    __FUNCTION__, MemoryBaseAddress, MemoryLength));
+
+  //
   // Report DXE Core image information to the PE/COFF Extra Action Library
   //
   ZeroMem (&ImageContext, sizeof (ImageContext));
@@ -429,7 +431,6 @@ DxeMain (
 
   MemoryProfileInstallProtocol ();
 
-  CoreInitializePropertiesTable ();
   CoreInitializeMemoryAttributesTable ();
   CoreInitializeMemoryProtection ();
 
